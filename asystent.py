@@ -1,60 +1,66 @@
 import streamlit as st
 import json
-import google.generativeai as genai
+import vertexai
+from vertexai.generative_models import GenerativeModel
+from google.oauth2 import service_account
 
-# --- 1. LOGOWANIE (SECRETS) ---
-def setup_ai():
+# --- 1. LOGOWANIE DO GOOGLE ---
+def get_creds():
     if "google_credentials" in st.secrets:
-        creds = json.loads(st.secrets["google_credentials"])
-        # Wyciągamy klucz prywatny z JSONa
-        api_key = creds.get("api_key") # Jeśli masz klucz API
-        # Jeśli używasz Service Account (JSON), Vertex może blokować. 
-        # Spróbujmy zainicjować przez API Key jeśli go masz, 
-        # lub użyć credentials bezpośrednio:
-        return creds
+        creds_dict = json.loads(st.secrets["google_credentials"])
+        return service_account.Credentials.from_service_account_info(creds_dict)
     return None
 
-creds_dict = setup_ai()
+creds = get_creds()
+PROJECT_ID = "decoded-reducer-449618-i7"
+
+if creds:
+    vertexai.init(project=PROJECT_ID, location="us-central1", credentials=creds)
 
 # --- 2. KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Asystent Pedagoga", page_icon="📝")
 st.title("📝 Asystent Dokumentacji Pedagogicznej")
 
 # --- 3. WYBÓR I OPIS ---
-typ = st.selectbox("Rodzaj dokumentu:", ["WOPFU", "IPET", "Ewaluacja", "Rewalidacja"])
-opis = st.text_area("Dane ucznia (bez nazwisk):", height=200)
+typ_dokumentu = st.selectbox("Wybierz rodzaj dokumentu:", [
+    "WOPFU", "IPET", "Program Zajęć Rewalidacyjnych", "Ewaluacja Półroczna/Roczna"
+])
 
-if st.button("✨ GENERUJ"):
-    if not creds_dict:
-        st.error("Brak klucza w Secrets!")
+opis_ucznia = st.text_area("Opisz diagnozę i sytuację ucznia (bez nazwisk):", height=200)
+
+if st.button("✨ GENERUJ DOKUMENT"):
+    if not opis_ucznia:
+        st.warning("Opisz ucznia przed generowaniem.")
+    elif not creds:
+        st.error("Błąd kluczy w Secrets!")
     else:
-        try:
-            # Próba połączenia nową metodą (Generative AI)
-            # Jeśli w Twoim JSONie nie ma pola 'api_key', spróbujemy 
-            # użyć projektu Vertex, ale z inną nazwą modelu.
-            
-            import vertexai
-            from vertexai.generative_models import GenerativeModel
-            
-            vertexai.init(project=creds_dict["project_id"], location="us-central1")
-            
-            # TESTUJEMY RÓŻNE NAZWY - jedna z nich MUSI zadziałać:
-            model = GenerativeModel("gemini-2.0-flash")
-            
-            success = False
-            for name in model_names:
-                try:
-                    model = GenerativeModel(name)
-                    response = model.generate_content(f"Napisz {typ} dla: {opis}")
-                    st.markdown("### Wynik:")
-                    st.write(response.text)
-                    success = True
-                    break
-                except:
-                    continue
-            
-            if not success:
-                st.error("Google nadal nie udostępnia modelu. Sprawdź czy Vertex AI API jest włączone w konsoli.")
+        with st.spinner("Pracuję nad dokumentem przy użyciu Gemini 2.0..."):
+            try:
+                # Używamy modelu 2.0, który widziałeś w konsoli
+                model = GenerativeModel("gemini-2.0-flash-exp")
                 
-        except Exception as e:
-            st.error(f"Błąd krytyczny: {e}")
+                instrukcja = f"""
+                Jesteś ekspertem pedagogiki specjalnej. Napisz profesjonalny projekt: {typ_dokumentu}.
+                Opis ucznia: {opis_ucznia}. 
+                Używaj terminologii zgodnej z rozporządzeniami MEN. 
+                Pisz konkretnie, merytorycznie, w punktach.
+                """
+                
+                response = model.generate_content(instrukcja)
+                
+                st.markdown("### 📄 Projekt dokumentu:")
+                st.write(response.text)
+                st.success("Sukces! Możesz skopiować tekst.")
+                
+            except Exception as e:
+                # Jeśli wersja exp nie zadziała, spróbujmy tej
+                try:
+                    model = GenerativeModel("gemini-2.0-flash-001")
+                    response = model.generate_content(instrukcja)
+                    st.write(response.text)
+                except:
+                    st.error(f"Błąd modelu: {e}")
+
+# --- 4. STOPKA ---
+st.divider()
+st.caption("Aplikacja wykorzystuje model Gemini 2.0 Flash.")
