@@ -62,7 +62,7 @@ if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
                 Zadbaj o strukturę punktową, aby łatwo było ją skopiować do arkusza szkoły.
                 """
 
-                model = GenerativeModel("gemini-1.5-flash-001")
+                model = GenerativeModel("gemini-2.0-flash-exp")
                 response = model.generate_content(instrukcja)
                 
                 st.markdown("### 📄 Propozycja dokumentu:")
