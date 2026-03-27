@@ -125,7 +125,7 @@ c1, c2 = st.columns(2)
 with c1:
     st.markdown("### ☕ Podoba Ci się to narzędzie?")
     st.write("Pomóż mi utrzymać serwery AI, aby aplikacja mogła pozostać darmowa dla nauczycieli.")
-    st.markdown("[**Postaw mi kawę na buycoffee.to**](https://buycoffee.to/TWOJA_NAZWA)") # ZMIEŃ LINK NA SWÓJ
+    st.markdown("[**Postaw mi kawę na buycoffee.to**](https://buycoffee.to/magiccolor)") # ZMIEŃ LINK NA SWÓJ
 
 with c2:
     with st.expander("⚖️ Regulamin i Prywatność"):
