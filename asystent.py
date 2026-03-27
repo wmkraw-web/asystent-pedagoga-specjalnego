@@ -128,20 +128,18 @@ if 'wynik' in st.session_state:
     data = create_word_pro(st.session_state['wynik'], "Projekt_Dokumentacji")
     st.download_button(label="📥 POBIERZ PLIK WORD", data=data, file_name=f"{st.session_state['nazwa']}.docx")
 
-# --- 5. STOPKA I ROZBUDOWANY REGULAMIN ---
+# --- 5. STOPKA I REGULAMIN Z NOWYM PRZYCISKIEM ---
 st.divider()
 bottom_c1, bottom_c2 = st.columns(2)
 with bottom_c1:
     st.markdown("### ☕ Podoba Ci się to narzędzie?")
-    kawa_html = f"""
-    <a href="https://buycoffee.to/magiccolor" target="_blank" style="text-decoration: none;">
-        <div style="background-color: #FFDD00; color: #000; padding: 12px 24px; border-radius: 12px; display: inline-flex; align-items: center; font-weight: bold; font-family: sans-serif;">
-            <img src="https://buycoffee.to/img/icons/coffee-icon.svg" style="width: 24px; margin-right: 10px;">
-            Postaw mi kawę
-        </div>
+    # NOWY ZIELONY PRZYCISK Z TWOJEGO SCREENA
+    kawa_code = """
+    <a href="https://buycoffee.to/magiccolor" target="_blank">
+        <img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 280px; height: auto;" alt="Postaw mi kawę na buycoffee.to">
     </a>
     """
-    st.markdown(kawa_html, unsafe_allow_html=True)
+    st.markdown(kawa_code, unsafe_allow_html=True)
 
 with bottom_c2:
     with st.expander("⚖️ Regulamin i Zasady Prawne"):
@@ -150,7 +148,7 @@ with bottom_c2:
         2. **Charakter pomocniczy:** Aplikacja jest narzędziem wspomagającym. Wygenerowany tekst stanowi **projekt dokumentu**, który musi zostać zweryfikowany przez Zespół ds. pomocy psychologiczno-pedagogicznej w danej placówce.
         3. **Odpowiedzialność:** Twórca aplikacji nie ponosi odpowiedzialności za ostateczną treść dokumentacji oraz decyzje organów nadzorczych. Ostateczny kształt dokumentu musi być dostosowany do indywidualnych potrzeb ucznia.
         4. **Prywatność (RODO):** Narzędzie przetwarza dane w sposób ulotny. Nie przechowujemy wgranych plików ani opisów na serwerach po zakończeniu sesji.
-        5. **Wsparcie:** Darowizny (kawa) są dobrowolne i wspierają rozwój oraz utrzymanie infrastruktury technicznej narzędzia.
+        5. **Wsparcie:** Darowizny są dobrowolne i wspierają rozwój oraz utrzymanie infrastruktury technicznej narzędzia.
         """)
 
 st.caption("Asystent Pedagoga PRO v3.0 | 2026")
