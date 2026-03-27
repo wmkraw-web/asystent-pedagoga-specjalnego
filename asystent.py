@@ -1,77 +1,60 @@
 import streamlit as st
 import json
-from google.oauth2 import service_account
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part
+import google.generativeai as genai
 
-# --- 1. LOGOWANIE DO GOOGLE ---
-def get_creds():
+# --- 1. LOGOWANIE (SECRETS) ---
+def setup_ai():
     if "google_credentials" in st.secrets:
-        creds_dict = json.loads(st.secrets["google_credentials"])
-        return service_account.Credentials.from_service_account_info(creds_dict)
+        creds = json.loads(st.secrets["google_credentials"])
+        # Wyciągamy klucz prywatny z JSONa
+        api_key = creds.get("api_key") # Jeśli masz klucz API
+        # Jeśli używasz Service Account (JSON), Vertex może blokować. 
+        # Spróbujmy zainicjować przez API Key jeśli go masz, 
+        # lub użyć credentials bezpośrednio:
+        return creds
     return None
 
-creds = get_creds()
-PROJECT_ID = "decoded-reducer-449618-i7" # Twój ID projektu
-
-if creds:
-    vertexai.init(project=PROJECT_ID, location="us-central1", credentials=creds)
+creds_dict = setup_ai()
 
 # --- 2. KONFIGURACJA STRONY ---
-st.set_page_config(page_title="Asystent Pedagoga Specjalnego", page_icon="📝")
-
+st.set_page_config(page_title="Asystent Pedagoga", page_icon="📝")
 st.title("📝 Asystent Dokumentacji Pedagogicznej")
-st.write("Profesjonalne wsparcie w tworzeniu WOPFU, IPET i Ewaluacji")
 
-# --- 3. WYBÓR DOKUMENTU ---
-typ_dokumentu = st.selectbox("Wybierz rodzaj dokumentu:", [
-    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)",
-    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)",
-    "Program Zajęć Rewalidacyjnych",
-    "Ewaluacja Półroczna/Roczna",
-    "Ocena Efektywności Pomocy Psychologiczno-Pedagogicznej"
-])
+# --- 3. WYBÓR I OPIS ---
+typ = st.selectbox("Rodzaj dokumentu:", ["WOPFU", "IPET", "Ewaluacja", "Rewalidacja"])
+opis = st.text_area("Dane ucznia (bez nazwisk):", height=200)
 
-# --- 4. FORMULARZ DANYCH ---
-st.info("⚠️ Pamiętaj o RODO! Zamiast nazwiska używaj inicjałów lub imienia (np. Jaś K.).")
-
-opis_ucznia = st.text_area("Opisz diagnozę, mocne strony i deficyty ucznia:", height=200)
-
-uploaded_file = st.file_uploader("Opcjonalnie: Wgraj tabelę wymagań lub wytyczne Twojej szkoły (plik tekstowy):", type=['txt'])
-
-# --- 5. GENEROWANIE ---
-if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
-    if not opis_ucznia:
-        st.warning("Opisz ucznia, aby AI mogło stworzyć dokument.")
+if st.button("✨ GENERUJ"):
+    if not creds_dict:
+        st.error("Brak klucza w Secrets!")
     else:
-        with st.spinner("Analizuję przepisy i przygotowuję dokument..."):
-            try:
-                # Dodatkowe wytyczne z pliku
-                dodatkowe_info = ""
-                if uploaded_file:
-                    dodatkowe_info = "\nUwzględnij te wytyczne z placówki: " + uploaded_file.read().decode("utf-8")
-
-                # Profesjonalny "System Prompt" dla pedagoga
-                instrukcja = f"""
-                Jesteś doświadczonym pedagogiem specjalnym i ekspertem od przepisów MEN. 
-                Twoim zadaniem jest napisać profesjonalny projekt dokumentu: {typ_dokumentu}.
-                Używaj języka fachowego, opieraj się na terminologii pedagogicznej.
-                Dane ucznia: {opis_ucznia}
-                {dodatkowe_info}
-                Dokument musi zawierać: cele, metody pracy, dostosowania wymagań i wnioski.
-                Zadbaj o strukturę punktową, aby łatwo było ją skopiować do arkusza szkoły.
-                """
-
-                model = GenerativeModel("gemini-1.5-flash-002")
-                response = model.generate_content(instrukcja)
+        try:
+            # Próba połączenia nową metodą (Generative AI)
+            # Jeśli w Twoim JSONie nie ma pola 'api_key', spróbujemy 
+            # użyć projektu Vertex, ale z inną nazwą modelu.
+            
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
+            
+            vertexai.init(project=creds_dict["project_id"], location="us-central1")
+            
+            # TESTUJEMY RÓŻNE NAZWY - jedna z nich MUSI zadziałać:
+            model_names = ["gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-pro"]
+            
+            success = False
+            for name in model_names:
+                try:
+                    model = GenerativeModel(name)
+                    response = model.generate_content(f"Napisz {typ} dla: {opis}")
+                    st.markdown("### Wynik:")
+                    st.write(response.text)
+                    success = True
+                    break
+                except:
+                    continue
+            
+            if not success:
+                st.error("Google nadal nie udostępnia modelu. Sprawdź czy Vertex AI API jest włączone w konsoli.")
                 
-                st.markdown("### 📄 Propozycja dokumentu:")
-                st.write(response.text)
-                st.success("Gotowe! Możesz skopiować tekst do Worda.")
-
-            except Exception as e:
-                st.error(f"Błąd: {e}")
-
-# Stopka
-st.divider()
-st.caption("Narzędzie wspierające - ostateczna treść dokumentu należy do nauczyciela prowadzącego.")
+        except Exception as e:
+            st.error(f"Błąd krytyczny: {e}")
