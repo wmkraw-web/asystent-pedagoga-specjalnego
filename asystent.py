@@ -158,4 +158,22 @@ if 'wynik' in st.session_state:
     )
 
 st.divider()
-st.caption("MagicColor AI - Moduł Pedagogiczny v3.0 | Silnik: Mistral PRO")
+s# --- 6. STOPKA, KAWA I REGULAMIN ---
+st.divider()
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.markdown("### Podoba Ci się to narzędzie?")
+    st.write("Utrzymanie serwerów AI kosztuje. Jeśli moja aplikacja zaoszczędziła Ci czas, możesz wesprzeć projekt stawiając mi symboliczną kawę.")
+    # Tutaj wklej swój link do BuyCoffee lub Typefury
+    st.markdown("[☕ Postaw mi kawę na buycoffee.to](https://buycoffee.to/TWOJA_NAZWA)")
+
+with col_right:
+    with st.expander("⚖️ Informacje i Prywatność"):
+        st.write("""
+        1. **RODO:** Aplikacja nie przechowuje danych wpisanych w formularzu ani treści wgranych plików. Dane są przesyłane do AI w celu wygenerowania dokumentu i natychmiast usuwane.
+        2. **Odpowiedzialność:** Wygenerowany tekst jest projektem pomocniczym. Ostateczną odpowiedzialność za treść dokumentacji ponosi nauczyciel.
+        3. **Wsparcie:** Darowizny są dobrowolne i przeznaczone na pokrycie kosztów infrastruktury AI.
+        """)
+
+st.caption("Asystent Pedagoga PRO v3.0 | 2026")
