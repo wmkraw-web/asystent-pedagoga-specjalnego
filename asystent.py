@@ -75,13 +75,13 @@ with st.sidebar:
     st.header("📂 Załączniki")
     uploaded_files = st.file_uploader("Dodaj PDF/DOCX (orzeczenia, wzory)", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
     st.divider()
-    with st.expander("💡 Jak pisać opis?"):
-        st.write("""
-        1. **Diagnoza:** Podaj główną przyczynę orzeczenia.
-        2. **Mocne strony:** Opisuj, co uczeń potrafi.
-        3. **Konkrety:** Zamiast ogólników, podaj konkretne zachowania.
-        4. **Zalecenia:** Wypisz 2-3 najważniejsze z orzeczenia.
-        """)
+    st.markdown("### 💡 Jak pisać opis?")
+    st.info("""
+    1. **Diagnoza:** Podaj główną przyczynę orzeczenia.
+    2. **Mocne strony:** Opisuj, co uczeń potrafi.
+    3. **Konkrety:** Podaj konkretne zachowania.
+    4. **Zalecenia:** Wypisz 2-3 kluczowe punkty.
+    """)
 
 # Nagłówek główny
 st.title("Asystent Dokumentacji PRO")
