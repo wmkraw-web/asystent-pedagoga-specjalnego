@@ -45,7 +45,7 @@ def generate_mistral_pro(prompt, context_files=""):
     except:
         return "Błąd połączenia z serwerem AI."
 
-# --- 3. FUNKCJA WORD PRO (TABELE) ---
+# --- 3. FUNKCJA WORD PRO ---
 def create_word_pro(text, title):
     doc = Document()
     doc.add_heading(title, 0)
@@ -82,17 +82,15 @@ def create_word_pro(text, title):
     doc.save(bio)
     return bio.getvalue()
 
-# --- 4. INTERFEJS UŻYTKOWNIKA (POWRÓT DO PRO STYLU) ---
+# --- 4. INTERFEJS UŻYTKOWNIKA ---
 st.set_page_config(page_title="Asystent Pedagoga PRO", page_icon="favicon.png", layout="wide")
 
-# Boczny panel tylko na pliki
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", width=180)
     st.header("📂 Załączniki")
     uploaded_files = st.file_uploader("Dodaj PDF, DOCX lub TXT", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
-# Nagłówek główny
 col_title, col_status = st.columns([3, 1])
 with col_title:
     st.title("Asystent Dokumentacji PRO")
@@ -100,7 +98,6 @@ with col_title:
 
 st.divider()
 
-# Formularz
 c1, c2 = st.columns(2)
 with c1:
     typ_doc = st.selectbox("Rodzaj dokumentu:", ["WOPFU", "IPET", "Program Zajęć Rewalidacyjnych", "Ewaluacja Półroczna", "Ewaluacja Końcoworoczna"])
@@ -131,7 +128,7 @@ if 'wynik' in st.session_state:
     data = create_word_pro(st.session_state['wynik'], "Projekt_Dokumentacji")
     st.download_button(label="📥 POBIERZ PLIK WORD", data=data, file_name=f"{st.session_state['nazwa']}.docx")
 
-# --- 5. STOPKA I KAWA ---
+# --- 5. STOPKA I ROZBUDOWANY REGULAMIN ---
 st.divider()
 bottom_c1, bottom_c2 = st.columns(2)
 with bottom_c1:
@@ -147,8 +144,13 @@ with bottom_c1:
     st.markdown(kawa_html, unsafe_allow_html=True)
 
 with bottom_c2:
-    with st.expander("⚖️ Regulamin i RODO"):
-        st.write("1. Aplikacja nie przechowuje danych (RODO).")
-        st.write("2. Dokument to projekt wspomagający - ostateczna treść należy do nauczyciela.")
+    with st.expander("⚖️ Regulamin i Zasady Prawne"):
+        st.write("""
+        1. **Zgodność z przepisami:** Projekty są generowane w oparciu o standardy merytoryczne i terminologię stosowaną w rozporządzeniach MEN dot. kształcenia specjalnego.
+        2. **Charakter pomocniczy:** Aplikacja jest narzędziem wspomagającym. Wygenerowany tekst stanowi **projekt dokumentu**, który musi zostać zweryfikowany przez Zespół ds. pomocy psychologiczno-pedagogicznej w danej placówce.
+        3. **Odpowiedzialność:** Twórca aplikacji nie ponosi odpowiedzialności za ostateczną treść dokumentacji oraz decyzje organów nadzorczych. Ostateczny kształt dokumentu musi być dostosowany do indywidualnych potrzeb ucznia.
+        4. **Prywatność (RODO):** Narzędzie przetwarza dane w sposób ulotny. Nie przechowujemy wgranych plików ani opisów na serwerach po zakończeniu sesji.
+        5. **Wsparcie:** Darowizny (kawa) są dobrowolne i wspierają rozwój oraz utrzymanie infrastruktury technicznej narzędzia.
+        """)
 
 st.caption("Asystent Pedagoga PRO v3.0 | 2026")
