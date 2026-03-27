@@ -120,12 +120,35 @@ if 'wynik' in st.session_state:
     st.download_button(label="📥 POBIERZ JAKO PLIK WORD (.docx)", data=word_data, file_name=f"{st.session_state['nazwa_pliku']}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 # --- 5. STOPKA I KAWA ---
+# --- 5. STOPKA I KAWA ---
 st.divider()
 c1, c2 = st.columns(2)
+
 with c1:
     st.markdown("### ☕ Podoba Ci się to narzędzie?")
-    st.write("Pomóż mi utrzymać serwery AI, aby aplikacja mogła pozostać darmowa dla nauczycieli.")
-    st.markdown("[**Postaw mi kawę na buycoffee.to**](https://buycoffee.to/magiccolor)") # ZMIEŃ LINK NA SWÓJ
+    st.write("Utrzymanie serwerów AI kosztuje. Jeśli moja aplikacja zaoszczędziła Ci czas, możesz wesprzeć projekt.")
+    
+    # --- STYLOWY PRZYCISK BUYCOFFEE ---
+    button_html = """
+    <a href="https://buycoffee.to/TWOJA_NAZWA" target="_blank" style="text-decoration: none;">
+        <div style="
+            background-color: #FFDD00;
+            color: #000000;
+            padding: 12px 24px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <img src="https://buycoffee.to/img/icons/coffee-icon.svg" style="width: 24px; margin-right: 10px;">
+            Postaw mi kawę
+        </div>
+    </a>
+    """
+    st.markdown(button_html, unsafe_allow_html=True)
 
 with c2:
     with st.expander("⚖️ Regulamin i Prywatność"):
