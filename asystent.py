@@ -1,93 +1,79 @@
 import streamlit as st
-import google.generativeai as genai
+import requests
 
-# --- 1. KONFIGURACJA AI ---
-def setup_genai():
-    if "GEMINI_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        return True
-    return False
+# --- 1. FUNKCJA GENEROWANIA (MISTRAL AI) ---
+def generate_mistral(prompt):
+    # Pobieramy klucz z Secrets
+    if "MISTRAL_API_KEY" not in st.secrets:
+        return "BŁĄD: Brak klucza MISTRAL_API_KEY w Secrets!"
+    
+    api_key = st.secrets["MISTRAL_API_KEY"]
+    url = "https://api.mistral.ai/v1/chat/completions"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    data = {
+        "model": "mistral-small-latest",
+        "messages": [
+            {
+                "role": "system", 
+                "content": "Jesteś doświadczonym pedagogiem specjalnym. Tworzysz profesjonalną dokumentację szkolną (WOPFU, IPET, Ewaluacja) zgodnie z wytycznymi MEN. Pisz merytorycznie, w punktach, używając języka specjalistycznego."
+            },
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7
+    }
+    
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status() # Sprawdza czy nie ma błędów HTTP
+        return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        return f"Wystąpił błąd podczas łączenia z AI: {str(e)}"
 
-# --- 2. WYGLĄD I STYL ---
-st.set_page_config(page_title="Asystent Pedagoga Specjalnego", page_icon="📝", layout="centered")
+# --- 2. KONFIGURACJA STRONY ---
+st.set_page_config(page_title="Asystent Pedagoga Specjalnego", page_icon="📝")
 
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #4A90E2; color: white; font-weight: bold; }
-    .success-text { color: #28a745; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("📝 Asystent Dokumentacji")
-st.subheader("WOPFU, IPET, Rewalidacja i Ewaluacja")
+st.title("📝 Asystent Dokumentacji Pedagogicznej")
+st.markdown("🚀 *Wersja stabilna (Silnik Mistral AI)*")
 st.divider()
 
-# --- 3. INPUT UŻYTKOWNIKA ---
+# --- 3. FORMULARZ ---
 col1, col2 = st.columns(2)
 with col1:
     typ_doc = st.selectbox("Rodzaj dokumentu:", [
         "WOPFU", 
         "IPET", 
         "Program Zajęć Rewalidacyjnych", 
-        "Ewaluacja Półroczna/Roczna",
-        "Ocena Efektywności Pomocy P-P"
+        "Ewaluacja Półroczna/Roczna"
     ])
-
 with col2:
     etap = st.selectbox("Etap edukacyjny:", ["Przedszkole", "Szkoła Podstawowa", "Szkoła Ponadpodstawowa"])
 
 opis_ucznia = st.text_area(
-    "Opisz ucznia (diagnoza, mocne strony, wyzwania):", 
-    placeholder="Np. Jaś, lat 6, spektrum autyzmu. Dobrze radzi sobie z zadaniami wizualnymi, ma trudności z komunikacją społeczną...",
+    "Opisz ucznia (diagnoza, trudności, mocne strony):", 
+    placeholder="Np. Kasia, 8 lat, niepełnosprawność intelektualna w stopniu lekkim, trudności z koncentracją...",
     height=200
 )
 
-# --- 4. LOGIKA GENEROWANIA ---
+# --- 4. GENEROWANIE ---
 if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
-    if not setup_genai():
-        st.error("Błąd: Brak GEMINI_API_KEY w Secrets!")
-    elif not opis_ucznia:
-        st.warning("Proszę wpisać opis ucznia.")
+    if not opis_ucznia:
+        st.warning("Proszę wpisać opis ucznia przed kliknięciem przycisku.")
     else:
-        with st.spinner("Mózg AI pracuje nad dokumentacją..."):
-            try:
-                # Próbujemy różnych nazw modeli, by uniknąć błędu 404
-                model_names = ['gemini-1.5-flash', 'gemini-pro']
-                response_text = ""
-                
-                prompt = f"""
-                Jesteś ekspertem pedagogiki specjalnej. Napisz profesjonalny, merytoryczny projekt dokumentu: {typ_doc}.
-                Etap: {etap}.
-                Opis ucznia: {opis_ucznia}.
-                Używaj języka profesjonalnego (terminologia MEN). Dokument ma być w punktach, czytelny.
-                Zaproponuj: cele terapeutyczne, formy pomocy, dostosowania wymagań oraz metody pracy.
-                """
-
-                model_found = False
-                for m_name in model_names:
-                    try:
-                        model = genai.GenerativeModel(m_name)
-                        response = model.generate_content(prompt)
-                        response_text = response.text
-                        model_found = True
-                        break
-                    except:
-                        continue
-                
-                if model_found:
-                    st.markdown("### 📄 Propozycja dokumentu:")
-                    st.markdown(response_text)
-                    st.success("Wygenerowano pomyślnie! Schowaj flaszkę, czas na kawę! ☕")
-                    
-                    # Przygotowanie do kopiowania
-                    st.info("💡 Skopiuj powyższy tekst i wklej do swojego arkusza szkolnego.")
-                else:
-                    st.error("Google odrzuciło połączenie. Sprawdź czy klucz API jest aktywny w AI Studio.")
-
-            except Exception as e:
-                st.error(f"Wystąpił nieoczekiwany błąd: {e}")
+        with st.spinner("Trwa analizowanie danych i pisanie dokumentu..."):
+            
+            prompt_final = f"Napisz projekt dokumentu {typ_doc} dla ucznia na etapie: {etap}. Dane do analizy: {opis_ucznia}"
+            
+            wynik = generate_mistral(prompt_final)
+            
+            st.markdown("### 📄 Propozycja dokumentu:")
+            st.markdown(wynik)
+            st.divider()
+            st.success("Sukces! Możesz skopiować tekst do Worda.")
 
 # --- 5. STOPKA ---
-st.divider()
-st.caption("Aplikacja wspierająca - ostateczna treść dokumentu należy do nauczyciela. Zadbaj o RODO.")
+st.caption("Aplikacja wspierająca nauczyciela. Pamiętaj o zachowaniu zasad RODO.")
