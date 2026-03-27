@@ -130,7 +130,7 @@ with c1:
     
     # --- STYLOWY PRZYCISK BUYCOFFEE ---
     button_html = """
-    <a href="https://buycoffee.to/TWOJA_NAZWA" target="_blank" style="text-decoration: none;">
+    <a href="https://buycoffee.to/magiccolor" target="_blank" style="text-decoration: none;">
         <div style="
             background-color: #FFDD00;
             color: #000000;
