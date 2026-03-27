@@ -2,100 +2,102 @@ import streamlit as st
 import requests
 from docx import Document
 from io import BytesIO
+import PyPDF2
 
-# --- 1. FUNKCJA GENEROWANIA (MISTRAL AI) ---
+# --- 1. FUNKCJE CZYTANIA PLIKÓW ---
+def read_docx(file):
+    doc = Document(file)
+    return "\n".join([para.text for para in doc.paragraphs])
+
+def read_pdf(file):
+    pdf_reader = PyPDF2.PdfReader(file)
+    text = ""
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
+
+# --- 2. FUNKCJA AI (MISTRAL) ---
 def generate_mistral(prompt, context_files=""):
-    if "MISTRAL_API_KEY" not in st.secrets:
-        return "BŁĄD: Brak klucza MISTRAL_API_KEY w Secrets!"
-    
     api_key = st.secrets["MISTRAL_API_KEY"]
     url = "https://api.mistral.ai/v1/chat/completions"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    
-    # Łączymy prompt z dodatkowym kontekstem z plików
-    full_prompt = f"{prompt}\n\nOto dodatkowe wytyczne/dokumenty do uwzględnienia:\n{context_files}"
+    full_prompt = f"{prompt}\n\nKONTEKST Z PLIKÓW:\n{context_files}"
     
     data = {
         "model": "mistral-small-latest",
         "messages": [
-            {
-                "role": "system", 
-                "content": "Jesteś ekspertem pedagogiki specjalnej. Tworzysz profesjonalną dokumentację (WOPFU, IPET, Ewaluacja). Twoim zadaniem jest stworzyć dokument na podstawie opisu i załączonych wytycznych. Pisz merytorycznie, w punktach."
-            },
+            {"role": "system", "content": "Jesteś ekspertem pedagogiki specjalnej. Tworzysz profesjonalną dokumentację (WOPFU, IPET, Ewaluacje) zgodnie z przepisami MEN."},
             {"role": "user", "content": full_prompt}
         ]
     }
-    
     response = requests.post(url, json=data, headers=headers)
     return response.json()['choices'][0]['message']['content']
 
-# --- 2. FUNKCJA TWORZENIA PLIKU WORD ---
+# --- 3. FUNKCJA WORD ---
 def create_word(text, title):
     doc = Document()
     doc.add_heading(title, 0)
-    # Proste formatowanie - dzielimy tekst na linie
     for line in text.split('\n'):
         doc.add_paragraph(line)
-    
     bio = BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
-# --- 3. INTERFEJS ---
+# --- 4. INTERFEJS ---
 st.set_page_config(page_title="Asystent Pedagoga PRO", page_icon="📝")
 st.title("📝 Asystent Dokumentacji PRO")
-st.divider()
 
-# Sekcja plików
-st.sidebar.header("📂 Dodatkowe dokumenty")
-file_dziecko = st.sidebar.file_uploader("Wgraj dokumenty dziecka (txt)", type=['txt'], help="Np. wypis z orzeczenia")
-file_szkola = st.sidebar.file_uploader("Wgraj wytyczne szkoły/tabelę (txt)", type=['txt'], help="Np. wzór tabeli wymagań")
+# Sidebar - Pliki
+st.sidebar.header("📂 Załączniki (PDF, DOCX, TXT)")
+files = st.sidebar.file_uploader("Wgraj dokumenty (orzeczenia, wytyczne)", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
-# Formularz główny
+# Formularz
 col1, col2 = st.columns(2)
 with col1:
-    typ_doc = st.selectbox("Rodzaj dokumentu:", ["WOPFU", "IPET", "Rewalidacja", "Ewaluacja Półroczna"])
+    typ_doc = st.selectbox("Rodzaj dokumentu:", [
+        "WOPFU", "IPET", "Program Zajęć Rewalidacyjnych", 
+        "Ewaluacja Półroczna", "Ewaluacja Końcoworoczna"
+    ])
 with col2:
     etap = st.selectbox("Etap:", ["Przedszkole", "Szkoła Podstawowa", "Szkoła Ponadpodstawowa"])
 
-opis_ucznia = st.text_area("Opis sytuacji ucznia:", height=150)
+opis_ucznia = st.text_area("Opis bieżący ucznia:", height=150)
 
-# --- 4. LOGIKA ---
+# Główna logika
 if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
-    if not opis_ucznia:
-        st.warning("Wpisz opis dziecka.")
+    if not opis_ucznia and not files:
+        st.warning("Dodaj opis lub wgraj pliki.")
     else:
-        with st.spinner("Analizuję pliki i generuję dokument..."):
-            # Czytanie plików jeśli są wgrane
+        with st.spinner("AI analizuje dokumenty i pisze tekst..."):
+            # Odczyt kontekstu z wielu plików
             kontekst = ""
-            if file_dziecko:
-                kontekst += f"\nDokument dziecka: {file_dziecko.read().decode('utf-8')}"
-            if file_szkola:
-                kontekst += f"\nWytyczne placówki: {file_szkola.read().decode('utf-8')}"
+            for f in files:
+                if f.name.endswith('.docx'): kontekst += read_docx(f)
+                elif f.name.endswith('.pdf'): kontekst += read_pdf(f)
+                else: kontekst += f.read().decode('utf-8')
             
-            prompt_final = f"Stwórz {typ_doc} dla etapu {etap}. Opis: {opis_ucznia}"
+            prompt_final = f"Napisz profesjonalny {typ_doc} dla ucznia ({etap}). Opis: {opis_ucznia}"
             wynik = generate_mistral(prompt_final, kontekst)
             
-            # Zapisujemy wynik w sesji, żeby nie zniknął przy pobieraniu
-            st.session_state['ostatni_wynik'] = wynik
-            st.session_state['tytul'] = f"{typ_doc}_projekt"
+            # Zapis do session_state (zapobiega znikaniu przycisku)
+            st.session_state['wynik'] = wynik
+            st.session_state['nazwa_pliku'] = f"{typ_doc}_{etap}".replace(" ", "_")
 
-if 'ostatni_wynik' in st.session_state:
-    st.markdown("### 📄 Wygenerowany tekst:")
-    st.markdown(st.session_state['ostatni_wynik'])
+# Wyświetlanie wyniku i przycisku pobierania
+if 'wynik' in st.session_state:
+    st.markdown("### 📄 Wygenerowany projekt:")
+    st.info("Poniższy tekst możesz edytować po pobraniu pliku Word.")
+    st.markdown(st.session_state['wynik'])
     
-    # Przycisk pobierania WORD
-    docx_file = create_word(st.session_state['ostatni_wynik'], st.session_state['tytul'])
+    word_data = create_word(st.session_state['wynik'], st.session_state['nazwa_pliku'])
+    
     st.download_button(
         label="📥 POBIERZ JAKO PLIK WORD (.docx)",
-        data=docx_file,
-        file_name=f"{st.session_state['tytul']}.docx",
+        data=word_data,
+        file_name=f"{st.session_state['nazwa_pliku']}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
 st.divider()
-st.caption("MagicColor AI - Moduł Pedagogiczny v2.0")
+st.caption("Asystent v2.5 - Obsługa PDF/DOCX | Mistral AI")
