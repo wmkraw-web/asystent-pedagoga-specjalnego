@@ -15,8 +15,7 @@ creds = get_creds()
 PROJECT_ID = "decoded-reducer-449618-i7"
 
 if creds:
-    vertexai.init(project=PROJECT_ID, location="us-central1", credentials=creds)
-
+    vertexai.init(project=PROJECT_ID, location="europe-west1", credentials=creds)
 # --- 2. KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Asystent Pedagoga", page_icon="📝")
 st.title("📝 Asystent Dokumentacji Pedagogicznej")
@@ -37,7 +36,7 @@ if st.button("✨ GENERUJ DOKUMENT"):
         with st.spinner("Pracuję nad dokumentem przy użyciu Gemini 2.0..."):
             try:
                 # Używamy modelu 2.0, który widziałeś w konsoli
-                model = GenerativeModel("gemini-2.0-flash-exp")
+                model = GenerativeModel("gemini-1.5-flash")
                 
                 instrukcja = f"""
                 Jesteś ekspertem pedagogiki specjalnej. Napisz profesjonalny projekt: {typ_dokumentu}.
