@@ -39,7 +39,7 @@ if st.button("✨ GENERUJ"):
             vertexai.init(project=creds_dict["project_id"], location="us-central1")
             
             # TESTUJEMY RÓŻNE NAZWY - jedna z nich MUSI zadziałać:
-            model_names = ["gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-pro"]
+            model = GenerativeModel("gemini-2.0-flash")
             
             success = False
             for name in model_names:
