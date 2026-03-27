@@ -5,7 +5,7 @@ from io import BytesIO
 import PyPDF2
 import os
 
-# --- 1. CZYTANIE PLIKÓW ---
+# --- 1. FUNKCJE CZYTANIA PLIKÓW ---
 def read_docx(file):
     doc = Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
@@ -17,8 +17,10 @@ def read_pdf(file):
         text += page.extract_text()
     return text
 
-# --- 2. SILNIK AI ---
+# --- 2. SILNIK AI (MISTRAL) ---
 def generate_mistral_pro(prompt, context_files=""):
+    if "MISTRAL_API_KEY" not in st.secrets:
+        return "BŁĄD: Brak klucza API w Secrets!"
     api_key = st.secrets["MISTRAL_API_KEY"]
     url = "https://api.mistral.ai/v1/chat/completions"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
@@ -26,7 +28,7 @@ def generate_mistral_pro(prompt, context_files=""):
     data = {
         "model": "mistral-small-latest",
         "messages": [
-            {"role": "system", "content": "Jesteś ekspertem pedagogiki specjalnej. Tworzysz profesjonalną dokumentację (WOPFU, IPET, Ewaluacje) zgodnie z terminologią MEN. Stosuj tabele dla przejrzystości."},
+            {"role": "system", "content": "Jesteś ekspertem pedagogiki specjalnej. Tworzysz profesjonalną dokumentację szkolną zgodnie z MEN. Pisz merytorycznie, w punktach, stosuj tabele."},
             {"role": "user", "content": full_prompt}
         ]
     }
@@ -66,24 +68,29 @@ def create_word_pro(text, title):
     doc.save(bio)
     return bio.getvalue()
 
-# --- 4. INTERFEJS ---
-st.set_page_config(page_title="Asystent Pedagoga PRO", page_icon="favicon.png")
+# --- 4. INTERFEJS UŻYTKOWNIKA ---
+st.set_page_config(page_title="Asystent Pedagoga PRO", page_icon="📝")
 
-# Sidebar - Pomoc i Pliki
+# Boczny panel (Sidebar)
 with st.sidebar:
-    if os.path.exists("logo.png"): st.image("logo.png", width=150)
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=150)
+    
     st.header("📂 Załączniki")
-    uploaded_files = st.file_uploader("Dodaj PDF/DOCX (orzeczenia, wzory)", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Dodaj PDF/DOCX", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+    
     st.divider()
+    
+    # --- NOWA, STAŁA INSTRUKCJA (BEZ KLIKANIA) ---
     st.markdown("### 💡 Jak pisać opis?")
     st.info("""
     1. **Diagnoza:** Podaj główną przyczynę orzeczenia.
     2. **Mocne strony:** Opisuj, co uczeń potrafi.
-    3. **Konkrety:** Podaj konkretne zachowania.
-    4. **Zalecenia:** Wypisz 2-3 kluczowe punkty.
+    3. **Konkrety:** Podaj konkretne zachowania zamiast ogólników.
+    4. **Zalecenia:** Wypisz 2-3 najważniejsze punkty z orzeczenia.
     """)
 
-# Nagłówek główny
+# Główna zawartość
 st.title("Asystent Dokumentacji PRO")
 st.caption("🚀 Inteligentne wsparcie pedagoga (Zgodny z MEN)")
 st.divider()
@@ -94,13 +101,13 @@ with col1:
 with col2:
     etap = st.selectbox("Etap:", ["Przedszkole", "Szkoła Podstawowa", "Szkoła Ponadpodstawowa"])
 
-opis_ucznia = st.text_area("Informacje o uczniu (bez nazwiska):", height=200, placeholder="Np. Janek, spektrum autyzmu, trudności w komunikacji...")
+opis_ucznia = st.text_area("Informacje o uczniu (bez nazwiska):", height=200, placeholder="Np. Janek, spektrum autyzmu...")
 
 if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
     if not opis_ucznia and not uploaded_files:
         st.warning("Opisz ucznia lub wgraj pliki.")
     else:
-        with st.spinner("AI analizuje dokumenty i pisze projekt..."):
+        with st.spinner("AI analizuje dane..."):
             kontekst = ""
             for f in uploaded_files:
                 if f.name.endswith('.docx'): kontekst += read_docx(f)
@@ -112,7 +119,7 @@ if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
             st.session_state['nazwa'] = f"{typ_doc}_{etap}".replace(" ", "_")
 
 if 'wynik' in st.session_state:
-    st.markdown("### 📄 Propozycja dokumentu:")
+    st.markdown("---")
     st.markdown(st.session_state['wynik'])
     data = create_word_pro(st.session_state['wynik'], "Projekt_Dokumentacji")
     st.download_button(label="📥 POBIERZ PLIK WORD", data=data, file_name=f"{st.session_state['nazwa']}.docx")
@@ -122,10 +129,10 @@ st.divider()
 c1, c2 = st.columns(2)
 with c1:
     st.markdown("### ☕ Podoba Ci się narzędzie?")
-    st.markdown(f'<a href="https://buycoffee.to/magiccolor" target="_blank" style="text-decoration: none;"><div style="background-color: #FFDD00; color: #000; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold;">Postaw mi kawę</div></a>', unsafe_allow_html=True)
+    # ZMIEŃ LINK PONIŻEJ NA SWÓJ:
+    st.markdown('<a href="https://buycoffee.to/magiccolor" target="_blank" style="text-decoration: none;"><div style="background-color: #FFDD00; color: #000; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold;">Postaw mi kawę</div></a>', unsafe_allow_html=True)
 with c2:
-    with st.expander("⚖️ Regulamin i RODO"):
-        st.write("1. Aplikacja przetwarza dane doraźnie - nie przechowuje ich.")
-        st.write("2. Dokument to projekt wspomagający - ostateczna treść należy do nauczyciela.")
+    st.markdown("**Regulamin i RODO**")
+    st.caption("Dane są przetwarzane tylko na czas generowania dokumentu. Ostateczna treść dokumentu należy do nauczyciela.")
 
 st.caption("Asystent Pedagoga PRO v3.0 | 2026")
