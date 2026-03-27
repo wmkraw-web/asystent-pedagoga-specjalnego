@@ -27,7 +27,7 @@ if st.button("✨ GENERUJ PROJEKT"):
         with st.spinner("Generuję dokument..."):
             try:
                 # Używamy modelu Flash 1.5 - jest najszybszy i najmniej problemowy
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('models/gemini-1.5-flash')
                 
                 prompt = f"""
                 Jesteś ekspertem pedagogiki specjalnej. 
