@@ -1,154 +1,95 @@
 import streamlit as st
+import urllib.parse
 import requests
-from docx import Document
-from io import BytesIO
-import PyPDF2
-import os
 
-# --- 1. FUNKCJE CZYTANIA PLIKÓW ---
-def read_docx(file):
-    try:
-        doc = Document(file)
-        return "\n".join([para.text for para in doc.paragraphs])
-    except: return ""
+# --- KONFIGURACJA STRONY ---
+st.set_page_config(page_title="Asystent Pedagoga", page_icon="👩‍🏫", layout="wide")
 
-def read_pdf(file):
-    try:
-        pdf_reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page in pdf_reader.pages: text += page.extract_text()
-        return text
-    except: return ""
+# --- NAGŁÓWEK ---
+st.title("Asystent Pedagoga Specjalnego 👩‍🏫")
 
-# --- 2. FUNKCJA AI (MISTRAL AI) ---
-def generate_mistral_pro(prompt, context_files=""):
-    if "MISTRAL_API_KEY" not in st.secrets:
-        return "BŁĄD: Brak klucza API w Secrets!"
-    
-    api_key = st.secrets["MISTRAL_API_KEY"]
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    
-    full_prompt = f"{prompt}\n\nKONTEKST Z WGRANYCH PLIKÓW:\n{context_files}"
-    
-    data = {
-        "model": "mistral-small-latest",
-        "messages": [
-            {"role": "system", "content": "Jesteś ekspertem pedagogiki specjalnej. Tworzysz profesjonalną dokumentację (WOPFU, IPET, Ewaluacje) zgodnie z terminologią MEN. Pisz merytorycznie, w punktach, stosuj czytelne tabele."},
-            {"role": "user", "content": full_prompt}
-        ]
-    }
-    
-    try:
-        response = requests.post(url, json=data, headers=headers)
-        return response.json()['choices'][0]['message']['content']
-    except:
-        return "Błąd połączenia z serwerem AI."
+# ROZWINIĘCIE ROZPORZĄDZENIA ZGODNIE Z PROŚBĄ
+st.markdown("#### Inteligentne wsparcie pedagoga")
+st.markdown("*(Zgodny z Rozporządzeniem Ministra Edukacji Narodowej z dnia 9 sierpnia 2017 r. w sprawie warunków organizowania kształcenia, wychowania i opieki dla dzieci i młodzieży niepełnosprawnych, niedostosowanych społecznie i zagrożonych niedostosowaniem społecznym)*")
+st.write("---")
+st.write("Wypełnij poniższe dane w punktach lub hasłowo. Sztuczna Inteligencja wygeneruje dla Ciebie profesjonalny, ciągły szkic dokumentu, który łatwo skopiujesz do Worda.")
 
-# --- 3. FUNKCJA WORD PRO ---
-def create_word_pro(text, title):
-    doc = Document()
-    doc.add_heading(title, 0)
-    lines = text.split('\n')
-    table_data, in_table = [], False
-    
-    for line in lines:
-        clean_line = line.strip()
-        if clean_line.startswith('|'):
-            in_table = True
-            cells = [c.strip() for c in clean_line.split('|') if c.strip()]
-            if all(c.replace('-', '').replace(':', '') == '' for c in cells): continue
-            if cells: table_data.append(cells)
-        else:
-            if in_table and table_data:
-                try:
-                    table = doc.add_table(rows=len(table_data), cols=len(table_data[0]))
-                    table.style = 'Table Grid'
-                    for i, row_data in enumerate(table_data):
-                        for j, cell_text in enumerate(row_data):
-                            if j < len(table.columns): table.cell(i, j).text = cell_text
-                except: pass
-                table_data, in_table = [], False
-            
-            if clean_line:
-                is_bold = clean_line.startswith('**') or clean_line.startswith('#')
-                clean_text = clean_line.replace('**', '').replace('#', '').strip()
-                p = doc.add_paragraph(clean_text)
-                if is_bold: p.bold = True
-            else:
-                doc.add_paragraph("")
-    
-    bio = BytesIO()
-    doc.save(bio)
-    return bio.getvalue()
+# --- WYBÓR DOKUMENTU ---
+doc_type = st.selectbox(
+    "Wybierz rodzaj dokumentu do wygenerowania:",
+    [
+        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)",
+        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)",
+        "Ocena efektywności IPET / Realizacja",
+        "Informacja o gotowości dziecka do podjęcia nauki w szkole",
+        "Opinia ogólna o uczniu/wychowanku"
+    ]
+)
 
-# --- 4. INTERFEJS UŻYTKOWNIKA ---
-st.set_page_config(page_title="Asystent Pedagoga PRO", page_icon="favicon.png", layout="wide")
+st.write("---")
 
-with st.sidebar:
-    if os.path.exists("logo.png"):
-        st.image("logo.png", width=180)
-    st.header("📂 Załączniki")
-    uploaded_files = st.file_uploader("Dodaj PDF, DOCX lub TXT", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+# --- FORMULARZ DANYCH ---
+col1, col2 = st.columns(2)
 
-col_title, col_status = st.columns([3, 1])
-with col_title:
-    st.title("Asystent Dokumentacji PRO")
-    st.caption("🚀 Inteligentne wsparcie pedagoga (Zgodny z MEN)")
+with col1:
+    student_name = st.text_input("Imię ucznia (lub inicjały):", placeholder="np. Jan Kowalski")
+    student_age = st.text_input("Wiek i klasa/grupa:", placeholder="np. 6 lat, grupa przedszkolna 'Żabki'")
+    diagnosis = st.text_area("Podstawa objęcia wsparciem (Diagnoza / Orzeczenie):", placeholder="np. Orzeczenie o potrzebie kształcenia specjalnego ze względu na autyzm (w tym zespół Aspergera)...", height=150)
 
-st.divider()
+with col2:
+    strengths = st.text_area("Mocne strony, uzdolnienia i potencjał ucznia:", placeholder="np. Bardzo dobra pamięć wzrokowa, bogate słownictwo, chęć do budowania z klocków...", height=110)
+    weaknesses = st.text_area("Trudności, bariery i wyzwania:", placeholder="np. Trudności ze skupieniem uwagi na zadaniu, impulsywność, problemy w relacjach z rówieśnikami...", height=110)
 
-c1, c2 = st.columns(2)
-with c1:
-    typ_doc = st.selectbox("Rodzaj dokumentu:", ["WOPFU", "IPET", "Program Zajęć Rewalidacyjnych", "Ewaluacja Półroczna", "Ewaluacja Końcoworoczna"])
-with c2:
-    etap = st.selectbox("Etap:", ["Przedszkole", "Szkoła Podstawowa", "Szkoła Ponadpodstawowa"])
-
-opis_ucznia = st.text_area("Informacje o uczniu (bez nazwiska):", height=200, placeholder="Np. Janek, spektrum autyzmu...")
-
-if st.button("✨ GENERUJ PROJEKT DOKUMENTU"):
-    if not opis_ucznia and not uploaded_files:
-        st.warning("Opisz ucznia lub dodaj pliki.")
+# --- PRZYCISK GENEROWANIA ---
+if st.button("Generuj dokument (AI)", type="primary", use_container_width=True):
+    if not student_name or not diagnosis:
+        st.warning("Uzupełnij przynajmniej Imię ucznia oraz Diagnozę, aby AI miało podstawy do napisania dokumentu!")
     else:
-        with st.spinner("Pracuję..."):
-            kontekst = ""
-            for f in uploaded_files:
-                if f.name.endswith('.docx'): kontekst += read_docx(f)
-                elif f.name.endswith('.pdf'): kontekst += read_pdf(f)
-                else: kontekst += f.read().decode('utf-8')
+        with st.spinner("Sztuczna Inteligencja redaguje profesjonalny dokument... To zajmie od 10 do 30 sekund ⏳"):
             
-            prompt = f"Napisz projekt {typ_doc} dla etapu {etap}. Dane: {opis_ucznia}. Stosuj tabele dla celów."
-            wynik = generate_mistral_pro(prompt, kontekst)
-            st.session_state['wynik'] = wynik
-            st.session_state['nazwa'] = f"{typ_doc}_{etap}".replace(" ", "_")
+            # Precyzyjne instrukcje (Prompt) dla AI
+            prompt = f"""
+            Jesteś profesjonalnym polskim pedagogiem specjalnym. Twoim zadaniem jest napisanie dokumentu: "{doc_type}".
+            Dane dziecka/ucznia: {student_name}, Wiek/Grupa: {student_age}.
+            Podstawa objęcia wsparciem / Diagnoza: {diagnosis}.
+            Mocne strony i zasoby: {strengths}.
+            Trudności i bariery: {weaknesses}.
+            
+            Wymogi:
+            1. Używaj wysoce profesjonalnego, formalnego i obiektywnego języka pedagogicznego (specyficznego dla polskich szkół i rozporządzeń MEN).
+            2. Dokument musi być sformatowany logicznie (wstęp, rozwinięcie, wnioski/zalecenia).
+            3. Jeśli to IPET, skup się na dostosowaniach i celach terapeutycznych. Jeśli to WOPFU, skup się na ocenie poziomu funkcjonowania. Jeśli to gotowość szkolna, opisz dojrzałość emocjonalną, poznawczą i motoryczną.
+            4. Zwróć tylko sam gotowy tekst dokumentu. Bez powitań typu "Oto Twój dokument".
+            """
 
-if 'wynik' in st.session_state:
-    st.markdown("---")
-    st.markdown(st.session_state['wynik'])
-    data = create_word_pro(st.session_state['wynik'], "Projekt_Dokumentacji")
-    st.download_button(label="📥 POBIERZ PLIK WORD", data=data, file_name=f"{st.session_state['nazwa']}.docx")
+            try:
+                # Korzystamy z darmowego generatora tekstu
+                encoded_prompt = urllib.parse.quote(prompt)
+                url = f"https://text.pollinations.ai/prompt/{encoded_prompt}"
+                
+                # Ustawiamy timeout na 60 sekund w razie obciążenia
+                response = requests.get(url, timeout=60)
 
-# --- 5. STOPKA I REGULAMIN Z NOWYM PRZYCISKIEM ---
-st.divider()
-bottom_c1, bottom_c2 = st.columns(2)
-with bottom_c1:
-    st.markdown("### ☕ Podoba Ci się to narzędzie?")
-    # NOWY ZIELONY PRZYCISK Z TWOJEGO SCREENA
-    kawa_code = """
-    <a href="https://buycoffee.to/magiccolor" target="_blank">
-        <img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 280px; height: auto;" alt="Postaw mi kawę na buycoffee.to">
-    </a>
-    """
-    st.markdown(kawa_code, unsafe_allow_html=True)
+                if response.status_code == 200:
+                    generated_text = response.text
+                    
+                    st.success(f"Sukces! Twój dokument ({doc_type}) został wygenerowany.")
+                    
+                    # Pole tekstowe z wynikiem
+                    st.text_area("Gotowy tekst (Kliknij w środek, wciśnij Ctrl+A, a potem Ctrl+C, żeby skopiować):", value=generated_text, height=500)
+                    
+                    # Opcja pobrania jako plik
+                    st.download_button(
+                        label="💾 Pobierz dokument jako plik tekstowy (.txt)",
+                        data=generated_text,
+                        file_name=f"{doc_type.split()[0]}_{student_name.replace(' ', '_')}.txt",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
+                else:
+                    st.error("Serwer AI jest w tej chwili obciążony. Proszę, kliknij generuj ponownie za kilkanaście sekund.")
+            except Exception as e:
+                st.error("Przekroczono czas oczekiwania na serwer lub wystąpił błąd połączenia. Spróbuj ponownie!")
 
-with bottom_c2:
-    with st.expander("⚖️ Regulamin i Zasady Prawne"):
-        st.write("""
-        1. **Zgodność z przepisami:** Projekty są generowane w oparciu o standardy merytoryczne i terminologię stosowaną w rozporządzeniach MEN dot. kształcenia specjalnego.
-        2. **Charakter pomocniczy:** Aplikacja jest narzędziem wspomagającym. Wygenerowany tekst stanowi **projekt dokumentu**, który musi zostać zweryfikowany przez Zespół ds. pomocy psychologiczno-pedagogicznej w danej placówce.
-        3. **Odpowiedzialność:** Twórca aplikacji nie ponosi odpowiedzialności za ostateczną treść dokumentacji oraz decyzje organów nadzorczych. Ostateczny kształt dokumentu musi być dostosowany do indywidualnych potrzeb ucznia.
-        4. **Prywatność (RODO):** Narzędzie przetwarza dane w sposób ulotny. Nie przechowujemy wgranych plików ani opisów na serwerach po zakończeniu sesji.
-        5. **Wsparcie:** Darowizny są dobrowolne i wspierają rozwój oraz utrzymanie infrastruktury technicznej narzędzia.
-        """)
-
-st.caption("Asystent Pedagoga PRO v3.0 | 2026")
+st.write("---")
+st.caption("Pamiętaj: Wygenerowany dokument ma charakter poglądowy i szkicowy. Zawsze przeczytaj go uważnie i dostosuj ostateczną treść do indywidualnych, rzeczywistych potrzeb i sytuacji dziecka przed włączeniem do oficjalnej dokumentacji szkolnej.")
