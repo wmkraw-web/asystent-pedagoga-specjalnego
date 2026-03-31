@@ -20,7 +20,7 @@ except ImportError:
 st.set_page_config(page_title="Asystent Pedagoga", page_icon="👩‍🏫", layout="wide")
 
 # --- NAGŁÓWEK ---
-st.title("Asystent Pedagoga Specjalnego 👩‍🏫")
+st.title("Asystent Pedagoga 👩‍🏫")
 
 # ROZWINIĘCIE ROZPORZĄDZENIA ZGODNIE Z PROŚBĄ
 st.markdown("#### Inteligentne wsparcie pedagoga")
