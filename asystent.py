@@ -114,7 +114,7 @@ def clean_ai_response(raw_text):
 
     # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli"
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
-        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning). Wynika to z przeciążenia sieci. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' ponownie."
+        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning). Wynika to z chwilowego błędu sieci. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' ponownie."
 
     # 4. WYCIĄGANIE TREŚCI Z "content":"..." (Zepsuty JSON)
     content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
@@ -143,17 +143,14 @@ def clean_ai_response(raw_text):
 def create_word_document(content_text, doc_type, student_name):
     doc = docx.Document()
     
-    # Ustawienia strony
     section = doc.sections[0]
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
     
-    # Styl podstawowy
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(12)
     
-    # Nagłówek dokumentu
     h = doc.add_heading(doc_type.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
@@ -165,7 +162,6 @@ def create_word_document(content_text, doc_type, student_name):
     doc.add_paragraph(f"Imię i nazwisko ucznia: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
     
-    # Inteligentne przepisywanie Markdown na Word
     for line in content_text.split('\n'):
         line = line.strip()
         if not line:
@@ -182,7 +178,6 @@ def create_word_document(content_text, doc_type, student_name):
             p = doc.add_paragraph()
             _add_formatted_run(p, line)
             
-    # Stopka prawna
     doc.add_paragraph("\n" + "_" * 30)
     footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox). Zgodny z wymogami Rozporządzenia MEN.")
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -194,7 +189,6 @@ def create_word_document(content_text, doc_type, student_name):
     return buffer
 
 def _add_formatted_run(paragraph, text):
-    # Funkcja do obsługi **pogrubienia** w tekście
     parts = text.split('**')
     for i, part in enumerate(parts):
         run = paragraph.add_run(part)
@@ -241,31 +235,31 @@ with tab1:
         
         st.markdown("---")
         st.subheader("Określenie problemu dziecka")
-        diagnosis = st.text_area("Główna Diagnoza / Problem dziecka:", placeholder="Opisz z czym uczeń ma problem, np. Spektrum autyzmu, dysleksja, trudności z koncentracją, problemy z integracją z rówieśnikami...", height=100)
+        diagnosis = st.text_area("Główna Diagnoza / Opis trudności:", placeholder="Opisz z czym uczeń ma największy problem, np. Spektrum autyzmu, trudności z koncentracją, agresja słowna, problemy z pisaniem...", height=150)
         
     with c2:
         st.subheader("Analiza dokumentacji bazowej")
         st.markdown("Wgraj orzeczenie z Poradni lub opinię, aby AI stworzyło dokument na ich podstawie:")
         files = st.file_uploader("Dodaj pliki (PDF, DOCX, TXT):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
-        st.markdown("---")
-        st.subheader("Dodatkowe wytyczne dla AI")
-        extra_context = st.text_area("Twoje własne notatki z obserwacji (opcjonalnie):", height=100, placeholder="Np. Uczeń bardzo interesuje się pociągami, co można wykorzystać jako wzmocnienie pozytywne...")
+    st.markdown("---")
+    st.subheader("Dodatkowe wytyczne dla AI")
+    extra_context = st.text_area("Twoje własne notatki z obserwacji (opcjonalnie):", height=100, placeholder="Np. Uczeń bardzo interesuje się pociągami, co można wykorzystać jako wzmocnienie pozytywne...")
 
     # --- AKCJA GŁÓWNA ---
     if st.button("⚙️ GENERUJ PEŁNY DOKUMENT (Analiza Ekspercka)"):
         if not s_name:
             st.error("⚠️ Podaj imię ucznia!")
+        elif not diagnosis and not files:
+            st.error("⚠️ Podaj opis problemu lub wgraj orzeczenie!")
         else:
             with st.spinner("🚀 Mercedes Klasy S rusza... AI analizuje dokumenty i pisze pismo..."):
                 
-                # Odczyt plików
                 full_raw_data = ""
                 if files:
                     for f in files:
                         full_raw_data += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
                 
-                # Prompt Systemowy (Rygorystyczny)
                 sys_msg = f"""Jesteś najbardziej doświadczonym pedagogiem specjalnym w Polsce. 
                 Twoim zadaniem jest stworzenie oficjalnego dokumentu ({doc_type}).
                 ZASADY:
@@ -275,11 +269,10 @@ with tab1:
                 4. Zwróć TYLKO czysty dokument w formacie Markdown (Nagłówki, pogrubienia).
                 5. ZAKAZ: Nie używaj formatu JSON. Nie dodawaj żadnych technicznych tagów."""
 
-                # Prompt Użytkownika
                 usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
                 DANE UCZNIA: {s_name}, {s_info}
-                PROBLEM/DIAGNOZA DZIECKA: {diagnosis if diagnosis else 'Brak, oprzyj się na wgranych orzeczeniach lub wygeneruj uniwersalny.'}
-                DANE Z ORZECZEŃ (DO ANALIZY): {full_raw_data if full_raw_data else 'Brak.'}
+                GŁÓWNY PROBLEM / DIAGNOZA: {diagnosis}
+                DANE Z WGRANYCH PLIKÓW: {full_raw_data if full_raw_data else 'Brak.'}
                 DODATKOWE UWAGI NAUCZYCIELA: {extra_context}
                 ZADANIE: Na podstawie powyższych danych napisz profesjonalny, gotowy do wydruku dokument."""
 
@@ -290,9 +283,9 @@ with tab1:
                 }
 
                 try:
-                    # GWARANCJA POPRAWNEGO, CZYSTEGO ADRESU URL
+                    # GWARANCJA POPRAWNEGO ADRESU URL
                     api_url = "[https://text.pollinations.ai/](https://text.pollinations.ai/)"
-                    res = requests.post(api_url, json=payload, timeout=90)
+                    res = requests.post(api_url, json=payload, timeout=120)
                     if res.ok:
                         # NASZ DIAMENTOWY PARSER
                         final_doc = clean_ai_response(res.text)
@@ -308,7 +301,6 @@ with tab2:
     if 'generated_doc' in st.session_state:
         doc_text = st.session_state['generated_doc']
         
-        # Sekcja pobierania
         st.subheader("📥 Eksport i Drukowanie")
         word_buf = create_word_document(doc_text, doc_type, st.session_state['s_name'])
         
@@ -324,7 +316,6 @@ with tab2:
         with c_dl2:
             st.info("💡 Plik Word zawiera gotowe formatowanie, nagłówki i stopki zgodne z przepisami.")
 
-        # Podgląd luksusowy
         st.markdown("---")
         st.markdown("### 🖥️ Podgląd arkusza A4")
         st.markdown(f'<div class="a4-paper">{doc_text}</div>', unsafe_allow_html=True)
