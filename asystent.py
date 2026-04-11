@@ -241,8 +241,8 @@ if st.button("⚙️ GENERUJ DOKUMENT (Analiza AI)", type="primary"):
             }
 
             try:
-                # NAPRAWIONY ADRES URL
-                response = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=60)
+                # NAPRAWIONY ADRES URL - CZYSTY LINK
+                response = requests.post("https://text.pollinations.ai/", json=payload, timeout=60)
                 
                 if response.ok:
                     raw_result = response.text
