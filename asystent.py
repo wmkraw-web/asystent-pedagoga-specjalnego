@@ -103,41 +103,40 @@ def clean_ai_response(raw_text):
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
-            if "content" in data: return data["content"]
+            if data.get("content"):
+                return data["content"]
             if "choices" in data and data["choices"]:
                 msg = data["choices"][0].get("message", {})
-                return msg.get("content", "")
+                if msg.get("content"):
+                    return msg["content"]
     except:
         pass
 
-    # 3. WYCIĄGANIE TREŚCI Z "content":"..." (Ratunek dla formatu ze zdjęcia)
-    if '"content":"' in raw_text:
-        try:
-            # Szukamy początku treści po kluczu "content":"
-            start_marker = '"content":"'
-            start_idx = raw_text.find(start_marker) + len(start_marker)
-            # Treść kończy się przed kolejnym kluczem technicznym lub końcem JSON
-            content_part = raw_text[start_idx:]
-            
-            end_markers = ['","tool_calls"', '","role"', '"}']
-            for marker in end_markers:
-                if marker in content_part:
-                    content_part = content_part.split(marker)[0]
-                    break
-            
-            # Naprawiamy znaki ucieczki (\n, \", \t)
-            clean = content_part.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t')
-            return clean.strip()
-        except:
-            pass
+    # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli" (Twój błąd ze zrzutu ekranu)
+    if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
+        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning), a nie właściwy dokument. Wynika to z chwilowego błędu na łączach. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' jeszcze raz."
 
-    # 4. Usuwanie tagów myślowych <think> (DeepSeek)
+    # 4. WYCIĄGANIE TREŚCI Z "content":"..." (Zepsuty JSON)
+    content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
+    if content_match:
+        extracted = content_match.group(1)
+        if extracted.endswith('","tool_calls":[]'):
+            extracted = extracted[:-17]
+        elif extracted.endswith('"}'):
+            extracted = extracted[:-2]
+        return extracted.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t').strip()
+
+    # 5. Usuwanie tagów myślowych <think>
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
     
-    # 5. Jeśli tekst nadal wygląda na techniczny JSON, usuwamy go brutalnie
-    clean_text = clean_text.replace('{"role":"assistant","content":"', '')
-    if clean_text.endswith('"}'): clean_text = clean_text[:-2]
+    # 6. Agresywne usuwanie nagłówków z surowego tekstu
+    clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"reasoning_content"\s*:\s*".*?",\s*"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
+    clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"content"\s*:\s*"', '', clean_text)
     
+    if clean_text.endswith('"}'): clean_text = clean_text[:-2]
+    if clean_text.endswith('","tool_calls":[]}'): clean_text = clean_text[:-18]
+    
+    clean_text = clean_text.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t')
     return clean_text.strip()
 
 # --- GENERATOR PLIKU WORD (.DOCX) ---
@@ -281,11 +280,12 @@ with tab1:
 
                 payload = {
                     "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                    "model": "openai"
+                    "model": "gpt-4o",
+                    "jsonMode": False
                 }
 
                 try:
-                    res = requests.post("https://text.pollinations.ai/", json=payload, timeout=90)
+                    res = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=90)
                     if res.ok:
                         # NASZ DIAMENTOWY PARSER
                         final_doc = clean_ai_response(res.text)
