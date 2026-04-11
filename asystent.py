@@ -93,13 +93,11 @@ def extract_text_from_file(uploaded_file):
 def clean_ai_response(raw_text):
     raw_text = raw_text.strip()
     
-    # 1. Jeśli tekst jest opakowany w bloki markdownu
     if raw_text.startswith("```"):
         raw_text = re.sub(r'^```[a-z]*\n', '', raw_text)
         raw_text = re.sub(r'\n```$', '', raw_text)
         raw_text = raw_text.strip()
 
-    # 2. Próba parsowania jako pełny obiekt JSON
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
@@ -109,11 +107,9 @@ def clean_ai_response(raw_text):
                 if msg.get("content"): return msg["content"]
     except: pass
 
-    # 3. ZABEZPIECZENIE: Brak dokumentu (tylko myśli)
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
         return "BŁĄD: AI wygenerowało tylko myśli. Spróbuj ponownie."
 
-    # 4. WYCIĄGANIE TREŚCI Z "content":"..."
     content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
     if content_match:
         extracted = content_match.group(1)
@@ -241,8 +237,11 @@ with tab1:
                 }
 
                 try:
-                    # GWARANCJA POPRAWNEGO LINKU (BEZ FORMATOWANIA)
-                    target_url = "[https://text.pollinations.ai/](https://text.pollinations.ai/)"
+                    # ROZCIĘTY LINK - TERAZ EDYTOR GO NIE ZEPSUJE!
+                    czesc_1 = "https://"
+                    czesc_2 = "text.pollinations.ai/"
+                    target_url = czesc_1 + czesc_2
+                    
                     res = requests.post(target_url, json=payload, timeout=120)
                     if res.ok:
                         final_doc = clean_ai_response(res.text)
