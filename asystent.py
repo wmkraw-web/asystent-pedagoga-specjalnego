@@ -285,7 +285,7 @@ with tab1:
                 }
 
                 try:
-                    # GWARANCJA POPRAWNEGO ADRESU URL
+                    # CAŁKOWICIE CZYSTY ADRES URL BEZ NAWIASÓW
                     res = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=90)
                     if res.ok:
                         # NASZ DIAMENTOWY PARSER
