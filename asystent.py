@@ -227,6 +227,17 @@ with tab1:
                 full_raw_data = ""
                 if files:
                     for f in files: full_raw_data += f"\n[PLIK: {f.name}]\n" + extract_text_from_file(f)
+                
+                # ZAGUBIONA ZMIENNA (sys_msg) - TERAZ JEST NA SWOIM MIEJSCU!
+                sys_msg = f"""Jesteś najbardziej doświadczonym pedagogiem specjalnym w Polsce. 
+                Twoim zadaniem jest stworzenie oficjalnego dokumentu ({doc_type}).
+                ZASADY:
+                1. Dokument musi być bezwzględnie zgodny z wytycznymi MEN: {MEN_RULES[doc_type]}
+                2. Używaj języka formalnego, analitycznego, unikaj potocyzmów.
+                3. Wypunktuj konkretne zalecenia do pracy z uczniem.
+                4. Zwróć TYLKO czysty dokument w formacie Markdown (Nagłówki, pogrubienia).
+                5. ZAKAZ: Nie używaj formatu JSON. Nie dodawaj żadnych technicznych tagów."""
+
                 usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
                 DANE UCZNIA: {s_name}, {s_info}
                 DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."""
