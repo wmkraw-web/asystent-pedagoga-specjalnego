@@ -285,7 +285,7 @@ with tab1:
                 }
 
                 try:
-                    res = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=90)
+                    res = requests.post("https://text.pollinations.ai/", json=payload, timeout=90)
                     if res.ok:
                         # NASZ DIAMENTOWY PARSER
                         final_doc = clean_ai_response(res.text)
