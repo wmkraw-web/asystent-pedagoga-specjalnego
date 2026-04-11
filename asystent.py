@@ -3,7 +3,7 @@ import requests
 import json
 import re
 import io
-import markdown # Biblioteka do ładnego wyświetlania tekstu
+import time
 
 # --- IMPORTY BIBLIOTEK DOKUMENTÓW ---
 try:
@@ -16,11 +16,15 @@ try:
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 except ImportError:
     st.error("Brak biblioteki python-docx. Dodaj 'python-docx' do pliku requirements.txt")
+try:
+    import markdown
+except ImportError:
+    st.error("Brak biblioteki markdown. Dodaj 'markdown' do pliku requirements.txt")
 
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Asystent Pedagoga AI - EduBox", page_icon="🎓", layout="wide")
 
-# --- STYLE CSS (LUKSUSOWY INTERFEJS I RENDEROWANIE A4) ---
+# --- STYLE CSS (LUKSUSOWY INTERFEJS A4) ---
 st.markdown("""
     <style>
     .main { background-color: #f1f5f9; }
@@ -34,213 +38,170 @@ st.markdown("""
         background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #2563eb; 
         color: #1e40af; padding: 12px 20px; border-radius: 10px; font-weight: bold; font-size: 14px; margin-bottom: 25px;
     }
-    
-    /* Styl Luksusowej Karty A4 - Renderowanie HTML */
     .a4-paper {
-        background-color: white;
-        padding: 50px 70px;
-        border-radius: 2px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-        color: #1e293b;
-        font-family: 'Times New Roman', Times, serif;
-        font-size: 15px;
-        line-height: 1.6;
-        min-height: 1000px;
-        border: 1px solid #e2e8f0;
-        margin: 10px auto;
-        max-width: 850px;
+        background-color: white; padding: 50px 70px; border-radius: 2px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.1); color: #1e293b;
+        font-family: 'Times New Roman', Times, serif; font-size: 15px;
+        line-height: 1.6; min-height: 1000px; border: 1px solid #e2e8f0;
+        margin: 10px auto; max-width: 850px;
     }
-    .a4-paper h1, .a4-paper h2, .a4-paper h3 { color: #0f172a; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
-    .a4-paper p { margin-bottom: 1em; text-align: justify; }
-    .a4-paper ul, .a4-paper ol { margin-bottom: 1.5em; padding-left: 2em; }
-    
-    /* Stylizacja Tabel w Dokumencie */
-    .a4-paper table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 14px; }
-    .a4-paper th, .a4-paper td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
-    .a4-paper th { background-color: #f8fafc; font-weight: bold; }
-    
-    .status-ok { color: #059669; font-weight: bold; }
+    .a4-paper h1, .a4-paper h2, .a4-paper h3 { color: #0f172a; margin-top: 1.5em; border-bottom: 1px solid #eee; }
+    .a4-paper table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+    .a4-paper th, .a4-paper td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .a4-paper th { background-color: #f9fafb; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNKCJE POMOCNICZE (ODCZYT PLIKÓW) ---
+# --- FUNKCJE POMOCNICZE ---
 def extract_text_from_file(uploaded_file):
     text = ""
     try:
         if uploaded_file.name.endswith('.pdf'):
             reader = PyPDF2.PdfReader(uploaded_file)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+            for page in reader.pages: text += page.extract_text() + "\n"
         elif uploaded_file.name.endswith('.docx'):
             doc = docx.Document(uploaded_file)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
+            for para in doc.paragraphs: text += para.text + "\n"
         elif uploaded_file.name.endswith('.txt'):
             text = uploaded_file.getvalue().decode("utf-8")
-    except Exception as e:
-        st.error(f"Nie udało się odczytać pliku {uploaded_file.name}: {e}")
+    except Exception as e: st.error(f"Błąd odczytu pliku: {e}")
     return text
 
-# --- DIAMENTOWY PARSER 5.0 (ODPORNY NA WSZYSTKO) ---
 def clean_ai_response(raw_text):
     raw_text = raw_text.strip()
-    if raw_text.startswith("```"):
-        raw_text = re.sub(r'^```[a-z]*\n', '', raw_text)
-        raw_text = re.sub(r'\n```$', '', raw_text)
-        raw_text = raw_text.strip()
+    # Usuwanie bloków ```markdown / ```json
+    raw_text = re.sub(r'^```[a-z]*\n', '', raw_text)
+    raw_text = re.sub(r'\n```$', '', raw_text)
+    
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
             if data.get("content"): return data["content"]
-            if "choices" in data and data["choices"]:
-                msg = data["choices"][0].get("message", {})
-                if msg.get("content"): return msg["content"]
+            if "choices" in data:
+                return data["choices"][0]["message"].get("content", "")
     except: pass
-    if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
-        return "BŁĄD: AI wygenerowało tylko myśli. Spróbuj ponownie."
-    content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
-    if content_match:
-        extracted = content_match.group(1)
-        extracted = re.sub(r'","tool_calls":\[\].*$', '', extracted)
-        extracted = re.sub(r'","role":"assistant".*$', '', extracted)
-        return extracted.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t').strip()
-    clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
-    clean_text = re.sub(r'^\{.*?"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
-    if clean_text.endswith('"}'): clean_text = clean_text[:-2]
-    return clean_text.replace('\\n', '\n').replace('\\"', '"').strip()
 
-# --- GENERATOR PLIKU WORD (.DOCX) ---
+    # Jeśli AI wysłało surowy tekst z "reasoning_content", wycinamy tylko czysty content
+    if '"content":' in raw_text:
+        match = re.search(r'"content"\s*:\s*"(.*?)"(?=,"tool_calls"|\}$)', raw_text, re.DOTALL)
+        if match:
+            return match.group(1).replace('\\n', '\n').replace('\\"', '"')
+
+    # Usuwanie tagów myślowych <think>
+    return re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+
 def create_word_document(content_text, doc_type, student_name):
     doc = docx.Document()
     section = doc.sections[0]
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
+    section.left_margin = section.right_margin = Inches(1)
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(12)
+    
     h = doc.add_heading(doc_type.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    p.add_run(f"Data wygenerowania: ....................").italic = True
-    doc.add_paragraph(f"Imię i nazwisko ucznia: {student_name}").bold = True
+    doc.add_paragraph(f"Uczeń: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
+    
     for line in content_text.split('\n'):
         line = line.strip()
-        if not line:
-            doc.add_paragraph()
-            continue
+        if not line: doc.add_paragraph(); continue
         if line.startswith('### ') or line.startswith('## ') or line.startswith('# '):
-            clean_line = line.replace('#', '').strip()
-            doc.add_heading(clean_line, level=2)
+            doc.add_heading(line.replace('#', '').strip(), level=2)
         elif line.startswith('- ') or line.startswith('* '):
             p = doc.add_paragraph(style='List Bullet')
-            _add_formatted_run(p, line[2:])
+            _add_bold_parts(p, line[2:])
         else:
             p = doc.add_paragraph()
-            _add_formatted_run(p, line)
-    doc.add_paragraph("\n" + "_" * 30)
-    footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox).")
-    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _add_bold_parts(p, line)
+            
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-def _add_formatted_run(paragraph, text):
+def _add_bold_parts(paragraph, text):
     parts = text.split('**')
     for i, part in enumerate(parts):
         run = paragraph.add_run(part)
         if i % 2 != 0: run.bold = True
 
-# --- BAZA WIEDZY MEN ---
+# --- DANE MEN ---
 MEN_RULES = {
-    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura musi zawierać: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpracę z rodzicami oraz ocenę efektywności.",
-    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura musi zawierać: Indywidualne potrzeby, mocne strony, przyczyny niepowodzeń, bariery środowiskowe oraz wnioski do pracy.",
-    "Opinia o uczniu / Arkusz obserwacji": "Struktura musi zawierać: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz zalecenia."
+    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, działania specjalistów, formy pomocy PP, współpraca z rodzicami, ocena efektywności.",
+    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura: Potrzeby, mocne strony, przyczyny niepowodzeń, bariery, wnioski.",
+    "Opinia o uczniu / Arkusz obserwacji": "Struktura: Funkcjonowanie poznawcze, społeczne, emocjonalne, zalecenia."
 }
 
-# --- INTERFEJS UŻYTKOWNIKA ---
-col_head1, col_head2 = st.columns([2, 1])
-with col_head1:
-    st.title("🎓 Asystent Pedagoga Specjalnego PRO")
-    st.markdown(f'<div class="men-badge">🏆 KLASA S: Analiza orzeczeń i profesjonalny wydruk</div>', unsafe_allow_html=True)
-with col_head2:
-    st.success("🤖 Status: **Gotowy do pracy**")
+# --- UI ---
+st.title("🎓 Asystent Pedagoga PRO")
+st.markdown('<div class="men-badge">🏆 KLASA S: Automatyczna analiza i profesjonalny wydruk</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("🔑 Autoryzacja")
     code = st.text_input("Kod dostępu:", type="password")
-    if code.upper() == "KAWA2024": st.success("Odblokowano MERCEDESA!")
-    else: st.warning("Tryb limitowany")
-    st.markdown("---")
-    st.info("**RODO:** Używaj inicjałów ucznia!")
+    is_pro = code.upper() == "KAWA2024"
+    if is_pro: st.success("Odblokowano funkcje PREMIUM")
+    st.info("RODO: Używaj inicjałów ucznia!")
     st.markdown("[☕ Postaw Kawę](https://buycoffee.to/magiccolor)")
 
-tab1, tab2 = st.tabs(["📁 1. Wgrywanie i Dane", "📝 2. Podgląd i Wydruk"])
+tab1, tab2 = st.tabs(["📁 1. Dane i Pliki", "📝 2. Podgląd i Wydruk"])
 
 with tab1:
-    st.subheader("Główny problem i dane ucznia")
-    diagnosis = st.text_area("❗ OKREŚLENIE PROBLEMU DZIECKA / GŁÓWNA DIAGNOZA:", placeholder="Opisz tutaj z czym uczeń ma problem. To kluczowe dla AI!", height=120)
+    diagnosis = st.text_area("❗ OKREŚLENIE PROBLEMU / DIAGNOZA:", placeholder="Np. Spektrum autyzmu, trudności z koncentracją...", height=100)
     c1, c2 = st.columns(2)
     with c1:
         s_name = st.text_input("Imię / Inicjały:", placeholder="np. Jan K.")
         s_info = st.text_input("Klasa / Wiek:", placeholder="np. Klasa 2a")
         doc_type = st.selectbox("Rodzaj dokumentu:", list(MEN_RULES.keys()))
     with c2:
-        st.subheader("Dokumentacja bazowa")
-        files = st.file_uploader("Wgraj orzeczenie z Poradni (PDF, DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
-    extra_context = st.text_area("Dodatkowe uwagi nauczyciela:", placeholder="Np. Uczeń bardzo lubi pociągi, szybko się nudzi przy pisaniu...", height=80)
+        files = st.file_uploader("Wgraj orzeczenie (PDF/DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+    extra = st.text_area("Dodatkowe uwagi:", height=80)
 
-    if st.button("⚙️ GENERUJ PEŁNY DOKUMENT (Klasa S)"):
-        if not s_name: st.error("⚠️ Podaj imię ucznia!")
-        elif not diagnosis: st.error("⚠️ Opisz problem dziecka!")
+    if st.button("⚙️ GENERUJ DOKUMENT"):
+        if not s_name or not diagnosis: st.error("⚠️ Podaj imię i diagnozę!")
         else:
-            with st.spinner("🚀 AI analizuje dokumenty i pisze pismo..."):
-                full_raw_data = ""
+            with st.spinner("🚀 Mercedes rusza... AI analizuje dokumenty. To może potrwać do 60s."):
+                full_text = ""
                 if files:
-                    for f in files: full_raw_data += f"\n[PLIK: {f.name}]\n" + extract_text_from_file(f)
+                    for f in files: full_text += f"\n[ANALIZA: {f.name}]\n" + extract_text_from_file(f)
                 
-                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej. Opracuj dokument {doc_type} zgodnie z MEN: {MEN_RULES[doc_type]}. Styl wysoce formalny. Używaj formatowania Markdown (nagłówki, listy punktowe, a JEŚLI TO MOŻLIWE - tabele dla przejrzystości). Zwróć tylko Markdown. ŻADNEGO JSON."""
-                usr_msg = f"DOKUMENT: {doc_type}. UCZEŃ: {s_name}, {s_info}. DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."
+                sys_msg = f"Jesteś ekspertem pedagogiki. Napisz profesjonalny dokument {doc_type} zgodnie z MEN. Używaj Markdown. Zwróć tylko czysty tekst dokumentu bez JSON."
+                usr_msg = f"UCZEŃ: {s_name}, {s_info}. DIAGNOZA: {diagnosis}. NOTATKI: {extra}. PLIKI: {full_text[:5000]}"
 
-                payload = {
-                    "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                    "model": "openai"
-                }
-
-                try:
-                    c1_url, c2_url = "https://", "text.pollinations.ai/"
-                    res = requests.post(c1_url + c2_url, json=payload, timeout=120)
-                    if res.ok:
-                        final_doc = clean_ai_response(res.text)
-                        st.session_state['generated_doc'] = final_doc
-                        st.session_state['s_name'] = s_name
-                        st.success("✅ Gotowe! Sprawdź zakładkę 'Podgląd i Wydruk'.")
-                    else: st.error(f"Błąd połączenia: {res.status_code}")
-                except Exception as e: st.error(f"Błąd krytyczny: {str(e)}")
+                # HAKERSKIE ŁĄCZENIE LINKU (Ochrona przed formatowaniem czatu)
+                p1, p2 = "https://", "text.pollinations.ai/"
+                api_url = p1 + p2
+                
+                success = False
+                for attempt in range(3): # PRÓBUJEMY 3 RAZY W RAZIE BŁĘDU 502
+                    try:
+                        res = requests.post(api_url, json={
+                            "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
+                            "model": "openai"
+                        }, timeout=90)
+                        
+                        if res.status_code == 200:
+                            final_doc = clean_ai_response(res.text)
+                            if len(final_doc) > 100: # Sprawdzamy czy to nie same myśli
+                                st.session_state['generated_doc'] = final_doc
+                                st.session_state['s_name'] = s_name
+                                success = True
+                                break
+                        time.sleep(2) # Czekaj 2s przed ponowieniem
+                    except: time.sleep(2)
+                
+                if success: st.success("✅ Gotowe! Sprawdź zakładkę 'Podgląd i Wydruk'.")
+                else: st.error("❌ Serwer AI jest obecnie zbyt zajęty (Błąd 502). Spróbuj ponownie za minutę.")
 
 with tab2:
     if 'generated_doc' in st.session_state:
-        doc_text = st.session_state['generated_doc']
-        st.subheader("📥 Eksport do Worda")
-        word_buf = create_word_document(doc_text, doc_type, st.session_state['s_name'])
-        
-        st.download_button(
-            label="📁 POBIERZ JAKO MICROSOFT WORD (.DOCX)",
-            data=word_buf,
-            file_name=f"dokument_{st.session_state['s_name']}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True, type="primary"
-        )
+        doc = st.session_state['generated_doc']
+        st.download_button("📁 POBIERZ PLIK WORD (.DOCX)", create_word_document(doc, doc_type, st.session_state['s_name']), file_name=f"{st.session_state['s_name']}_dokument.docx", type="primary")
         st.markdown("---")
-        st.markdown("### 🖥️ Podgląd arkusza A4")
-        
-        # --- KLUCZOWA ZMIANA: RENDEROWANIE MARKDOWN NA HTML ---
-        html_content = markdown.markdown(doc_text, extensions=['tables'])
-        st.markdown(f'<div class="a4-paper">{html_content}</div>', unsafe_allow_html=True)
-    else:
-        st.info("Wypełnij dane w pierwszej zakładce i kliknij Generuj.")
+        html = markdown.markdown(doc, extensions=['tables'])
+        st.markdown(f'<div class="a4-paper">{html}</div>', unsafe_allow_html=True)
+    else: st.info("Wypełnij dane i kliknij Generuj.")
 
 st.markdown("---")
-st.caption("EduBox AI PRO © 2026 | System wsparcia pedagogicznego.")
+st.caption("EduBox AI © 2026 | System wsparcia pedagoga.")
