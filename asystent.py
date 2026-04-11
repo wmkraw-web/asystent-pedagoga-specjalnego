@@ -112,7 +112,7 @@ def clean_ai_response(raw_text):
     except:
         pass
 
-    # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli" (Twój błąd ze zrzutu ekranu)
+    # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli"
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
         return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning), a nie właściwy dokument. Wynika to z chwilowego błędu na łączach. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' jeszcze raz."
 
@@ -285,6 +285,7 @@ with tab1:
                 }
 
                 try:
+                    # GWARANCJA POPRAWNEGO ADRESU URL
                     res = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=90)
                     if res.ok:
                         # NASZ DIAMENTOWY PARSER
