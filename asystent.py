@@ -3,6 +3,7 @@ import requests
 import json
 import re
 import io
+import markdown # Biblioteka do ładnego wyświetlania tekstu
 
 # --- IMPORTY BIBLIOTEK DOKUMENTÓW ---
 try:
@@ -19,54 +20,45 @@ except ImportError:
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Asystent Pedagoga AI - EduBox", page_icon="🎓", layout="wide")
 
-# --- STYLE CSS (LUKSUSOWY INTERFEJS) ---
+# --- STYLE CSS (LUKSUSOWY INTERFEJS I RENDEROWANIE A4) ---
 st.markdown("""
     <style>
-    .main { background-color: #f8fafc; }
+    .main { background-color: #f1f5f9; }
     .stButton>button { 
-        width: 100%; 
-        border-radius: 15px; 
-        height: 4em; 
-        font-weight: 800; 
-        font-size: 18px; 
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        color: white;
-        border: none;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s;
+        width: 100%; border-radius: 15px; height: 4em; font-weight: 800; font-size: 18px; 
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; border: none;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.3s;
     }
-    .stButton>button:hover { 
-        transform: translateY(-2px); 
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    }
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
     .men-badge { 
-        background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%);
-        border-left: 5px solid #2563eb; 
-        color: #1e40af; 
-        padding: 12px 20px; 
-        border-radius: 10px; 
-        font-weight: bold; 
-        font-size: 14px; 
-        margin-bottom: 25px;
+        background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #2563eb; 
+        color: #1e40af; padding: 12px 20px; border-radius: 10px; font-weight: bold; font-size: 14px; margin-bottom: 25px;
     }
     
-    /* Styl Luksusowej Karty A4 */
+    /* Styl Luksusowej Karty A4 - Renderowanie HTML */
     .a4-paper {
         background-color: white;
-        padding: 60px 70px;
-        border-radius: 4px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+        padding: 50px 70px;
+        border-radius: 2px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
         color: #1e293b;
         font-family: 'Times New Roman', Times, serif;
-        font-size: 16px;
-        line-height: 1.7;
+        font-size: 15px;
+        line-height: 1.6;
         min-height: 1000px;
         border: 1px solid #e2e8f0;
-        white-space: pre-wrap;
-        margin: 20px auto;
-        max-width: 900px;
+        margin: 10px auto;
+        max-width: 850px;
     }
+    .a4-paper h1, .a4-paper h2, .a4-paper h3 { color: #0f172a; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+    .a4-paper p { margin-bottom: 1em; text-align: justify; }
+    .a4-paper ul, .a4-paper ol { margin-bottom: 1.5em; padding-left: 2em; }
+    
+    /* Stylizacja Tabel w Dokumencie */
+    .a4-paper table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 14px; }
+    .a4-paper th, .a4-paper td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+    .a4-paper th { background-color: #f8fafc; font-weight: bold; }
+    
     .status-ok { color: #059669; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
@@ -92,12 +84,10 @@ def extract_text_from_file(uploaded_file):
 # --- DIAMENTOWY PARSER 5.0 (ODPORNY NA WSZYSTKO) ---
 def clean_ai_response(raw_text):
     raw_text = raw_text.strip()
-    
     if raw_text.startswith("```"):
         raw_text = re.sub(r'^```[a-z]*\n', '', raw_text)
         raw_text = re.sub(r'\n```$', '', raw_text)
         raw_text = raw_text.strip()
-
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
@@ -106,21 +96,17 @@ def clean_ai_response(raw_text):
                 msg = data["choices"][0].get("message", {})
                 if msg.get("content"): return msg["content"]
     except: pass
-
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
         return "BŁĄD: AI wygenerowało tylko myśli. Spróbuj ponownie."
-
     content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
     if content_match:
         extracted = content_match.group(1)
         extracted = re.sub(r'","tool_calls":\[\].*$', '', extracted)
         extracted = re.sub(r'","role":"assistant".*$', '', extracted)
         return extracted.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t').strip()
-
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
     clean_text = re.sub(r'^\{.*?"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
     if clean_text.endswith('"}'): clean_text = clean_text[:-2]
-    
     return clean_text.replace('\\n', '\n').replace('\\"', '"').strip()
 
 # --- GENERATOR PLIKU WORD (.DOCX) ---
@@ -129,21 +115,16 @@ def create_word_document(content_text, doc_type, student_name):
     section = doc.sections[0]
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
-    
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(12)
-    
     h = doc.add_heading(doc_type.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p.add_run(f"Data wygenerowania: ....................").italic = True
-
     doc.add_paragraph(f"Imię i nazwisko ucznia: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
-    
     for line in content_text.split('\n'):
         line = line.strip()
         if not line:
@@ -158,11 +139,9 @@ def create_word_document(content_text, doc_type, student_name):
         else:
             p = doc.add_paragraph()
             _add_formatted_run(p, line)
-            
     doc.add_paragraph("\n" + "_" * 30)
     footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox).")
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -189,7 +168,6 @@ with col_head1:
 with col_head2:
     st.success("🤖 Status: **Gotowy do pracy**")
 
-# --- PANEL BOCZNY ---
 with st.sidebar:
     st.header("🔑 Autoryzacja")
     code = st.text_input("Kod dostępu:", type="password")
@@ -199,26 +177,21 @@ with st.sidebar:
     st.info("**RODO:** Używaj inicjałów ucznia!")
     st.markdown("[☕ Postaw Kawę](https://buycoffee.to/magiccolor)")
 
-# --- FORMULARZ ---
 tab1, tab2 = st.tabs(["📁 1. Wgrywanie i Dane", "📝 2. Podgląd i Wydruk"])
 
 with tab1:
     st.subheader("Główny problem i dane ucznia")
-    diagnosis = st.text_area("❗ OKREŚLENIE PROBLEMU DZIECKA / GŁÓWNA DIAGNOZA:", placeholder="Opisz tutaj z czym uczeń ma problem (np. spektrum autyzmu, trudności z koncentracją, agresja, afazja...). To kluczowe dla AI!", height=150)
-    
+    diagnosis = st.text_area("❗ OKREŚLENIE PROBLEMU DZIECKA / GŁÓWNA DIAGNOZA:", placeholder="Opisz tutaj z czym uczeń ma problem. To kluczowe dla AI!", height=120)
     c1, c2 = st.columns(2)
     with c1:
         s_name = st.text_input("Imię / Inicjały:", placeholder="np. Jan K.")
         s_info = st.text_input("Klasa / Wiek:", placeholder="np. Klasa 2a")
         doc_type = st.selectbox("Rodzaj dokumentu:", list(MEN_RULES.keys()))
-        
     with c2:
         st.subheader("Dokumentacja bazowa")
         files = st.file_uploader("Wgraj orzeczenie z Poradni (PDF, DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+    extra_context = st.text_area("Dodatkowe uwagi nauczyciela:", placeholder="Np. Uczeń bardzo lubi pociągi, szybko się nudzi przy pisaniu...", height=80)
 
-    extra_context = st.text_area("Dodatkowe uwagi nauczyciela:", placeholder="Np. Uczeń bardzo lubi pociągi, szybko się nudzi przy pisaniu...", height=100)
-
-    # --- AKCJA ---
     if st.button("⚙️ GENERUJ PEŁNY DOKUMENT (Klasa S)"):
         if not s_name: st.error("⚠️ Podaj imię ucznia!")
         elif not diagnosis: st.error("⚠️ Opisz problem dziecka!")
@@ -228,19 +201,8 @@ with tab1:
                 if files:
                     for f in files: full_raw_data += f"\n[PLIK: {f.name}]\n" + extract_text_from_file(f)
                 
-                # ZAGUBIONA ZMIENNA (sys_msg) - TERAZ JEST NA SWOIM MIEJSCU!
-                sys_msg = f"""Jesteś najbardziej doświadczonym pedagogiem specjalnym w Polsce. 
-                Twoim zadaniem jest stworzenie oficjalnego dokumentu ({doc_type}).
-                ZASADY:
-                1. Dokument musi być bezwzględnie zgodny z wytycznymi MEN: {MEN_RULES[doc_type]}
-                2. Używaj języka formalnego, analitycznego, unikaj potocyzmów.
-                3. Wypunktuj konkretne zalecenia do pracy z uczniem.
-                4. Zwróć TYLKO czysty dokument w formacie Markdown (Nagłówki, pogrubienia).
-                5. ZAKAZ: Nie używaj formatu JSON. Nie dodawaj żadnych technicznych tagów."""
-
-                usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
-                DANE UCZNIA: {s_name}, {s_info}
-                DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."""
+                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej. Opracuj dokument {doc_type} zgodnie z MEN: {MEN_RULES[doc_type]}. Styl wysoce formalny. Używaj formatowania Markdown (nagłówki, listy punktowe, a JEŚLI TO MOŻLIWE - tabele dla przejrzystości). Zwróć tylko Markdown. ŻADNEGO JSON."""
+                usr_msg = f"DOKUMENT: {doc_type}. UCZEŃ: {s_name}, {s_info}. DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."
 
                 payload = {
                     "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
@@ -248,12 +210,8 @@ with tab1:
                 }
 
                 try:
-                    # ROZCIĘTY LINK - TERAZ EDYTOR GO NIE ZEPSUJE!
-                    czesc_1 = "https://"
-                    czesc_2 = "text.pollinations.ai/"
-                    target_url = czesc_1 + czesc_2
-                    
-                    res = requests.post(target_url, json=payload, timeout=120)
+                    c1_url, c2_url = "https://", "text.pollinations.ai/"
+                    res = requests.post(c1_url + c2_url, json=payload, timeout=120)
                     if res.ok:
                         final_doc = clean_ai_response(res.text)
                         st.session_state['generated_doc'] = final_doc
@@ -273,13 +231,16 @@ with tab2:
             data=word_buf,
             file_name=f"dokument_{st.session_state['s_name']}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-            type="primary"
+            use_container_width=True, type="primary"
         )
         st.markdown("---")
         st.markdown("### 🖥️ Podgląd arkusza A4")
-        st.markdown(f'<div class="a4-paper">{doc_text}</div>', unsafe_allow_html=True)
-    else: st.info("Wypełnij dane w pierwszej zakładce i kliknij Generuj.")
+        
+        # --- KLUCZOWA ZMIANA: RENDEROWANIE MARKDOWN NA HTML ---
+        html_content = markdown.markdown(doc_text, extensions=['tables'])
+        st.markdown(f'<div class="a4-paper">{html_content}</div>', unsafe_allow_html=True)
+    else:
+        st.info("Wypełnij dane w pierwszej zakładce i kliknij Generuj.")
 
 st.markdown("---")
 st.caption("EduBox AI PRO © 2026 | System wsparcia pedagogicznego.")
