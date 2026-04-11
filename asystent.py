@@ -89,17 +89,15 @@ def extract_text_from_file(uploaded_file):
         st.error(f"Nie udało się odczytać pliku {uploaded_file.name}: {e}")
     return text
 
-# --- DIAMENTOWY PARSER 5.0 (ODPORNY NA WSZYSTKO) ---
+# --- DIAMENTOWY PARSER 5.0 ---
 def clean_ai_response(raw_text):
     raw_text = raw_text.strip()
     
-    # 1. Jeśli tekst jest opakowany w bloki markdownu
     if raw_text.startswith("```"):
         raw_text = re.sub(r'^```[a-z]*\n', '', raw_text)
         raw_text = re.sub(r'\n```$', '', raw_text)
         raw_text = raw_text.strip()
 
-    # 2. Próba parsowania jako pełny obiekt JSON (standard API)
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
@@ -112,11 +110,9 @@ def clean_ai_response(raw_text):
     except:
         pass
 
-    # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli"
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
-        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning), a nie właściwy dokument. Wynika to z chwilowego błędu na łączach. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' jeszcze raz."
+        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning). Wynika to z przeciążenia sieci. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' ponownie."
 
-    # 4. WYCIĄGANIE TREŚCI Z "content":"..." (Zepsuty JSON)
     content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
     if content_match:
         extracted = content_match.group(1)
@@ -126,10 +122,7 @@ def clean_ai_response(raw_text):
             extracted = extracted[:-2]
         return extracted.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t').strip()
 
-    # 5. Usuwanie tagów myślowych <think>
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
-    
-    # 6. Agresywne usuwanie nagłówków z surowego tekstu
     clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"reasoning_content"\s*:\s*".*?",\s*"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
     clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"content"\s*:\s*"', '', clean_text)
     
@@ -143,17 +136,14 @@ def clean_ai_response(raw_text):
 def create_word_document(content_text, doc_type, student_name):
     doc = docx.Document()
     
-    # Ustawienia strony
     section = doc.sections[0]
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
     
-    # Styl podstawowy
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(12)
     
-    # Nagłówek dokumentu
     h = doc.add_heading(doc_type.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
@@ -165,7 +155,6 @@ def create_word_document(content_text, doc_type, student_name):
     doc.add_paragraph(f"Imię i nazwisko ucznia: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
     
-    # Inteligentne przepisywanie Markdown na Word
     for line in content_text.split('\n'):
         line = line.strip()
         if not line:
@@ -182,9 +171,8 @@ def create_word_document(content_text, doc_type, student_name):
             p = doc.add_paragraph()
             _add_formatted_run(p, line)
             
-    # Stopka prawna
     doc.add_paragraph("\n" + "_" * 30)
-    footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox). Zgodny z wymogami Rozporządzenia MEN.")
+    footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox).")
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.styles['Normal'].font.size = Pt(8)
     
@@ -194,7 +182,6 @@ def create_word_document(content_text, doc_type, student_name):
     return buffer
 
 def _add_formatted_run(paragraph, text):
-    # Funkcja do obsługi **pogrubienia** w tekście
     parts = text.split('**')
     for i, part in enumerate(parts):
         run = paragraph.add_run(part)
@@ -255,13 +242,11 @@ with tab1:
         else:
             with st.spinner("🚀 Mercedes Klasy S rusza... AI analizuje dokumenty i pisze pismo..."):
                 
-                # Odczyt plików
                 full_raw_data = ""
                 if files:
                     for f in files:
                         full_raw_data += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
                 
-                # Prompt Systemowy (Rygorystyczny)
                 sys_msg = f"""Jesteś najbardziej doświadczonym pedagogiem specjalnym w Polsce. 
                 Twoim zadaniem jest stworzenie oficjalnego dokumentu ({doc_type}).
                 ZASADY:
@@ -271,7 +256,6 @@ with tab1:
                 4. Zwróć TYLKO czysty dokument w formacie Markdown (Nagłówki, pogrubienia).
                 5. ZAKAZ: Nie używaj formatu JSON. Nie dodawaj żadnych technicznych tagów."""
 
-                # Prompt Użytkownika
                 usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
                 DANE UCZNIA: {s_name}, {s_info}
                 DANE Z ORZECZEŃ (DO ANALIZY): {full_raw_data if full_raw_data else 'Brak, wygeneruj typowe zapisy na podstawie diagnozy ogólnej.'}
@@ -285,10 +269,10 @@ with tab1:
                 }
 
                 try:
-                    # CAŁKOWICIE CZYSTY ADRES URL BEZ NAWIASÓW
-                    res = requests.post("[https://text.pollinations.ai/](https://text.pollinations.ai/)", json=payload, timeout=90)
+                    # GWARANCJA POPRAWNEGO ADRESU URL
+                    api_url = "[https://text.pollinations.ai/](https://text.pollinations.ai/)"
+                    res = requests.post(api_url, json=payload, timeout=90)
                     if res.ok:
-                        # NASZ DIAMENTOWY PARSER
                         final_doc = clean_ai_response(res.text)
                         st.session_state['generated_doc'] = final_doc
                         st.session_state['s_name'] = s_name
@@ -302,7 +286,6 @@ with tab2:
     if 'generated_doc' in st.session_state:
         doc_text = st.session_state['generated_doc']
         
-        # Sekcja pobierania
         st.subheader("📥 Eksport i Drukowanie")
         word_buf = create_word_document(doc_text, doc_type, st.session_state['s_name'])
         
@@ -318,7 +301,6 @@ with tab2:
         with c_dl2:
             st.info("💡 Plik Word zawiera gotowe formatowanie, nagłówki i stopki zgodne z przepisami.")
 
-        # Podgląd luksusowy
         st.markdown("---")
         st.markdown("### 🖥️ Podgląd arkusza A4")
         st.markdown(f'<div class="a4-paper">{doc_text}</div>', unsafe_allow_html=True)
