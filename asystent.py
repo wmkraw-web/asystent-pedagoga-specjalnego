@@ -227,13 +227,13 @@ with tab1:
                 full_raw_data = ""
                 if files:
                     for f in files: full_raw_data += f"\n[PLIK: {f.name}]\n" + extract_text_from_file(f)
-                
-                sys_msg = f"Jesteś ekspertem pedagogiki specjalnej. Opracuj dokument {doc_type} zgodnie z MEN: {MEN_RULES[doc_type]}. Styl formalny. Zwróć tylko Markdown. ŻADNEGO JSON."
-                usr_msg = f"DOKUMENT: {doc_type}. UCZEŃ: {s_name}, {s_info}. DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."
+                usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
+                DANE UCZNIA: {s_name}, {s_info}
+                DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."""
 
                 payload = {
                     "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                    "model": "gpt-4o"
+                    "model": "openai"
                 }
 
                 try:
