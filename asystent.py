@@ -99,50 +99,37 @@ def clean_ai_response(raw_text):
         raw_text = re.sub(r'\n```$', '', raw_text)
         raw_text = raw_text.strip()
 
-    # 2. Próba parsowania jako pełny obiekt JSON (standard API)
+    # 2. Próba parsowania jako pełny obiekt JSON
     try:
         data = json.loads(raw_text)
         if isinstance(data, dict):
-            if data.get("content"):
-                return data["content"]
+            if data.get("content"): return data["content"]
             if "choices" in data and data["choices"]:
                 msg = data["choices"][0].get("message", {})
-                if msg.get("content"):
-                    return msg["content"]
-    except:
-        pass
+                if msg.get("content"): return msg["content"]
+    except: pass
 
-    # 3. ZABEZPIECZENIE KRYTYCZNE: Brak dokumentu, AI wysłało tylko "myśli"
+    # 3. ZABEZPIECZENIE: Brak dokumentu (tylko myśli)
     if '"reasoning_content":' in raw_text and '"content":' not in raw_text:
-        return "BŁĄD: Serwer AI wygenerował wyłącznie swój wewnętrzny proces myślowy (reasoning). Wynika to z chwilowego błędu sieci. \n\n👉 **ROZWIĄZANIE:** Kliknij przycisk 'Generuj dokument' ponownie."
+        return "BŁĄD: AI wygenerowało tylko myśli. Spróbuj ponownie."
 
-    # 4. WYCIĄGANIE TREŚCI Z "content":"..." (Zepsuty JSON)
+    # 4. WYCIĄGANIE TREŚCI Z "content":"..."
     content_match = re.search(r'"content"\s*:\s*"(.*)"\}?$', raw_text, re.DOTALL)
     if content_match:
         extracted = content_match.group(1)
-        if extracted.endswith('","tool_calls":[]'):
-            extracted = extracted[:-17]
-        elif extracted.endswith('"}'):
-            extracted = extracted[:-2]
+        extracted = re.sub(r'","tool_calls":\[\].*$', '', extracted)
+        extracted = re.sub(r'","role":"assistant".*$', '', extracted)
         return extracted.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t').strip()
 
-    # 5. Usuwanie tagów myślowych <think>
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
-    
-    # 6. Agresywne usuwanie nagłówków z surowego tekstu
-    clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"reasoning_content"\s*:\s*".*?",\s*"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
-    clean_text = re.sub(r'^\{"role"\s*:\s*"assistant",\s*"content"\s*:\s*"', '', clean_text)
-    
+    clean_text = re.sub(r'^\{.*?"content"\s*:\s*"', '', clean_text, flags=re.DOTALL)
     if clean_text.endswith('"}'): clean_text = clean_text[:-2]
-    if clean_text.endswith('","tool_calls":[]}'): clean_text = clean_text[:-18]
     
-    clean_text = clean_text.replace('\\n', '\n').replace('\\"', '"').replace('\\t', '\t')
-    return clean_text.strip()
+    return clean_text.replace('\\n', '\n').replace('\\"', '"').strip()
 
 # --- GENERATOR PLIKU WORD (.DOCX) ---
 def create_word_document(content_text, doc_type, student_name):
     doc = docx.Document()
-    
     section = doc.sections[0]
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
@@ -156,8 +143,7 @@ def create_word_document(content_text, doc_type, student_name):
     
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run = p.add_run(f"Data wygenerowania: ....................")
-    run.italic = True
+    p.add_run(f"Data wygenerowania: ....................").italic = True
 
     doc.add_paragraph(f"Imię i nazwisko ucznia: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
@@ -167,7 +153,6 @@ def create_word_document(content_text, doc_type, student_name):
         if not line:
             doc.add_paragraph()
             continue
-            
         if line.startswith('### ') or line.startswith('## ') or line.startswith('# '):
             clean_line = line.replace('#', '').strip()
             doc.add_heading(clean_line, level=2)
@@ -179,9 +164,8 @@ def create_word_document(content_text, doc_type, student_name):
             _add_formatted_run(p, line)
             
     doc.add_paragraph("\n" + "_" * 30)
-    footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox). Zgodny z wymogami Rozporządzenia MEN.")
+    footer = doc.add_paragraph("Dokument opracowany przy wsparciu Asystenta Pedagoga AI (EduBox).")
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.styles['Normal'].font.size = Pt(8)
     
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -196,131 +180,96 @@ def _add_formatted_run(paragraph, text):
 
 # --- BAZA WIEDZY MEN ---
 MEN_RULES = {
-    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura musi zawierać: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpracę z rodzicami oraz ocenę efektywności (zgodnie z rozporządzeniem nr 87).",
+    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura musi zawierać: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpracę z rodzicami oraz ocenę efektywności.",
     "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura musi zawierać: Indywidualne potrzeby, mocne strony, przyczyny niepowodzeń, bariery środowiskowe oraz wnioski do pracy.",
-    "Opinia o uczniu / Arkusz obserwacji": "Struktura musi zawierać: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz konkretne zalecenia do pracy dydaktycznej."
+    "Opinia o uczniu / Arkusz obserwacji": "Struktura musi zawierać: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz zalecenia."
 }
 
 # --- INTERFEJS UŻYTKOWNIKA ---
 col_head1, col_head2 = st.columns([2, 1])
 with col_head1:
     st.title("🎓 Asystent Pedagoga Specjalnego PRO")
-    st.markdown(f'<div class="men-badge">🏆 KLASA S: Analiza orzeczeń i generowanie dokumentów MEN</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="men-badge">🏆 KLASA S: Analiza orzeczeń i profesjonalny wydruk</div>', unsafe_allow_html=True)
 with col_head2:
-    st.success("🤖 Silnik AI: **Ready**")
-    st.markdown('<p class="status-ok">✓ Połączono z bazą przepisów oświatowych</p>', unsafe_allow_html=True)
+    st.success("🤖 Status: **Gotowy do pracy**")
 
-# --- PANEL BOCZNY (USTAWIENIA) ---
+# --- PANEL BOCZNY ---
 with st.sidebar:
-    st.header("🔑 Autoryzacja Premium")
-    code = st.text_input("Wprowadź kod dostępu:", type="password")
-    is_pro = code.upper() == "KAWA2024"
-    if is_pro: st.success("Odblokowano funkcje MERCEDES!")
-    else: st.warning("Tryb demonstracyjny")
-    
+    st.header("🔑 Autoryzacja")
+    code = st.text_input("Kod dostępu:", type="password")
+    if code.upper() == "KAWA2024": st.success("Odblokowano MERCEDESA!")
+    else: st.warning("Tryb limitowany")
     st.markdown("---")
-    st.info("**RODO:** Aplikacja nie zapisuje wgranych plików na serwerze. Po zamknięciu sesji dane są usuwane.")
-    st.markdown("[☕ Postaw Kawę, aby otrzymać kod](https://buycoffee.to/magiccolor)")
+    st.info("**RODO:** Używaj inicjałów ucznia!")
+    st.markdown("[☕ Postaw Kawę](https://buycoffee.to/magiccolor)")
 
-# --- FORMULARZ (PODZIAŁ NA KOLUMNY) ---
+# --- FORMULARZ ---
 tab1, tab2 = st.tabs(["📁 1. Wgrywanie i Dane", "📝 2. Podgląd i Wydruk"])
 
 with tab1:
+    st.subheader("Główny problem i dane ucznia")
+    diagnosis = st.text_area("❗ OKREŚLENIE PROBLEMU DZIECKA / GŁÓWNA DIAGNOZA:", placeholder="Opisz tutaj z czym uczeń ma problem (np. spektrum autyzmu, trudności z koncentracją, agresja, afazja...). To kluczowe dla AI!", height=150)
+    
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("Informacje o uczniu")
-        s_name = st.text_input("Imię i Nazwisko (lub inicjały):", placeholder="np. Jan Kowalski")
-        s_info = st.text_input("Klasa / Wiek:", placeholder="np. Klasa 2a, 8 lat")
-        doc_type = st.selectbox("Rodzaj dokumentu wyjściowego:", list(MEN_RULES.keys()))
-        
-        st.markdown("---")
-        st.subheader("Określenie problemu dziecka")
-        diagnosis = st.text_area("Główna Diagnoza / Opis trudności:", placeholder="Opisz z czym uczeń ma największy problem, np. Spektrum autyzmu, trudności z koncentracją, agresja słowna, problemy z pisaniem...", height=150)
+        s_name = st.text_input("Imię / Inicjały:", placeholder="np. Jan K.")
+        s_info = st.text_input("Klasa / Wiek:", placeholder="np. Klasa 2a")
+        doc_type = st.selectbox("Rodzaj dokumentu:", list(MEN_RULES.keys()))
         
     with c2:
-        st.subheader("Analiza dokumentacji bazowej")
-        st.markdown("Wgraj orzeczenie z Poradni lub opinię, aby AI stworzyło dokument na ich podstawie:")
-        files = st.file_uploader("Dodaj pliki (PDF, DOCX, TXT):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+        st.subheader("Dokumentacja bazowa")
+        files = st.file_uploader("Wgraj orzeczenie z Poradni (PDF, DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
-    st.markdown("---")
-    st.subheader("Dodatkowe wytyczne dla AI")
-    extra_context = st.text_area("Twoje własne notatki z obserwacji (opcjonalnie):", height=100, placeholder="Np. Uczeń bardzo interesuje się pociągami, co można wykorzystać jako wzmocnienie pozytywne...")
+    extra_context = st.text_area("Dodatkowe uwagi nauczyciela:", placeholder="Np. Uczeń bardzo lubi pociągi, szybko się nudzi przy pisaniu...", height=100)
 
-    # --- AKCJA GŁÓWNA ---
-    if st.button("⚙️ GENERUJ PEŁNY DOKUMENT (Analiza Ekspercka)"):
-        if not s_name:
-            st.error("⚠️ Podaj imię ucznia!")
-        elif not diagnosis and not files:
-            st.error("⚠️ Podaj opis problemu lub wgraj orzeczenie!")
+    # --- AKCJA ---
+    if st.button("⚙️ GENERUJ PEŁNY DOKUMENT (Klasa S)"):
+        if not s_name: st.error("⚠️ Podaj imię ucznia!")
+        elif not diagnosis: st.error("⚠️ Opisz problem dziecka!")
         else:
-            with st.spinner("🚀 Mercedes Klasy S rusza... AI analizuje dokumenty i pisze pismo..."):
-                
+            with st.spinner("🚀 AI analizuje dokumenty i pisze pismo..."):
                 full_raw_data = ""
                 if files:
-                    for f in files:
-                        full_raw_data += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
+                    for f in files: full_raw_data += f"\n[PLIK: {f.name}]\n" + extract_text_from_file(f)
                 
-                sys_msg = f"""Jesteś najbardziej doświadczonym pedagogiem specjalnym w Polsce. 
-                Twoim zadaniem jest stworzenie oficjalnego dokumentu ({doc_type}).
-                ZASADY:
-                1. Dokument musi być bezwzględnie zgodny z wytycznymi MEN: {MEN_RULES[doc_type]}
-                2. Używaj języka formalnego, analitycznego, unikaj potocyzmów.
-                3. Wypunktuj konkretne zalecenia do pracy z uczniem.
-                4. Zwróć TYLKO czysty dokument w formacie Markdown (Nagłówki, pogrubienia).
-                5. ZAKAZ: Nie używaj formatu JSON. Nie dodawaj żadnych technicznych tagów."""
-
-                usr_msg = f"""OPRACUJ DOKUMENT: {doc_type}
-                DANE UCZNIA: {s_name}, {s_info}
-                GŁÓWNY PROBLEM / DIAGNOZA: {diagnosis}
-                DANE Z WGRANYCH PLIKÓW: {full_raw_data if full_raw_data else 'Brak.'}
-                DODATKOWE UWAGI NAUCZYCIELA: {extra_context}
-                ZADANIE: Na podstawie powyższych danych napisz profesjonalny, gotowy do wydruku dokument."""
+                sys_msg = f"Jesteś ekspertem pedagogiki specjalnej. Opracuj dokument {doc_type} zgodnie z MEN: {MEN_RULES[doc_type]}. Styl formalny. Zwróć tylko Markdown. ŻADNEGO JSON."
+                usr_msg = f"DOKUMENT: {doc_type}. UCZEŃ: {s_name}, {s_info}. DIAGNOZA: {diagnosis}. PLIKI: {full_raw_data}. NOTATKI: {extra_context}."
 
                 payload = {
                     "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                    "model": "gpt-4o",
-                    "jsonMode": False
+                    "model": "gpt-4o"
                 }
 
                 try:
-                    # GWARANCJA POPRAWNEGO ADRESU URL
-                    api_url = "[https://text.pollinations.ai/](https://text.pollinations.ai/)"
-                    res = requests.post(api_url, json=payload, timeout=120)
+                    # GWARANCJA POPRAWNEGO LINKU (BEZ FORMATOWANIA)
+                    target_url = "[https://text.pollinations.ai/](https://text.pollinations.ai/)"
+                    res = requests.post(target_url, json=payload, timeout=120)
                     if res.ok:
-                        # NASZ DIAMENTOWY PARSER
                         final_doc = clean_ai_response(res.text)
                         st.session_state['generated_doc'] = final_doc
                         st.session_state['s_name'] = s_name
-                        st.success("✅ Dokument wygenerowany! Przejdź do zakładki 'Podgląd i Wydruk'.")
-                    else:
-                        st.error(f"Błąd połączenia (Kod: {res.status_code})")
-                except Exception as e:
-                    st.error(f"Błąd krytyczny: {str(e)}")
+                        st.success("✅ Gotowe! Sprawdź zakładkę 'Podgląd i Wydruk'.")
+                    else: st.error(f"Błąd połączenia: {res.status_code}")
+                except Exception as e: st.error(f"Błąd krytyczny: {str(e)}")
 
 with tab2:
     if 'generated_doc' in st.session_state:
         doc_text = st.session_state['generated_doc']
-        
-        st.subheader("📥 Eksport i Drukowanie")
+        st.subheader("📥 Eksport do Worda")
         word_buf = create_word_document(doc_text, doc_type, st.session_state['s_name'])
         
-        c_dl1, c_dl2 = st.columns(2)
-        with c_dl1:
-            st.download_button(
-                label="📁 POBIERZ JAKO MICROSOFT WORD (.DOCX)",
-                data=word_buf,
-                file_name=f"{doc_type.split(' ')[0]}_{st.session_state['s_name']}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True
-            )
-        with c_dl2:
-            st.info("💡 Plik Word zawiera gotowe formatowanie, nagłówki i stopki zgodne z przepisami.")
-
+        st.download_button(
+            label="📁 POBIERZ JAKO MICROSOFT WORD (.DOCX)",
+            data=word_buf,
+            file_name=f"dokument_{st.session_state['s_name']}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            type="primary"
+        )
         st.markdown("---")
         st.markdown("### 🖥️ Podgląd arkusza A4")
         st.markdown(f'<div class="a4-paper">{doc_text}</div>', unsafe_allow_html=True)
-    else:
-        st.info("Tu pojawi się Twój dokument po kliknięciu 'Generuj' w pierwszej zakładce.")
+    else: st.info("Wypełnij dane w pierwszej zakładce i kliknij Generuj.")
 
 st.markdown("---")
-st.caption("EduBox AI PRO © 2026 | Technologia wspierająca Polską Edukację.")
+st.caption("EduBox AI PRO © 2026 | System wsparcia pedagogicznego.")
