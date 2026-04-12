@@ -29,7 +29,7 @@ try:
 except:
     OPENAI_API_KEY = None
 
-# --- STYLE CSS (LUKSUSOWY INTERFEJS + BLUR DLA PAYWALLA) ---
+# --- STYLE CSS ---
 st.markdown("""
     <style>
     .main { background-color: #f1f5f9; }
@@ -50,12 +50,10 @@ st.markdown("""
         line-height: 1.6; min-height: 1000px; border: 1px solid #e2e8f0;
         margin: 10px auto; max-width: 850px;
     }
-    /* STYLIZACJA TABEL NA PODGLĄDZIE */
     .a4-paper table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
     .a4-paper th, .a4-paper td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; }
     .a4-paper th { background-color: #f8fafc; font-weight: bold; }
     
-    /* STYLE DLA WZORU POKAZOWEGO (PAYWALL) */
     .demo-watermark {
         background-color: #fff1f2;
         border: 2px dashed #f43f5e;
@@ -92,7 +90,7 @@ def fix_markdown_tables(text):
                     fixed_lines.append(separator)
     return "\n".join(fixed_lines)
 
-# --- FUNKCJE POMOCNICZE (ODCZYT PLIKÓW I TABEL DOCX) ---
+# --- FUNKCJE POMOCNICZE ---
 def extract_text_from_file(uploaded_file):
     text = ""
     try:
@@ -119,12 +117,10 @@ def create_word_document(content_text, doc_type, student_name):
     section = doc.sections[0]
     section.left_margin = section.right_margin = Inches(1)
     
-    # GŁÓWNY STYL URZĘDOWY: Times New Roman 12pt
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(12)
     
-    # STYLE NAGŁÓWKÓW URZĘDOWYCH: Times New Roman 14pt, pogrubione, czarne
     for i in range(1, 4):
         try:
             heading_style = doc.styles[f'Heading {i}']
@@ -272,7 +268,6 @@ with tab1:
         weaknesses = st.text_area("🚧 Trudności / Bariery:", placeholder="Z czym ma największy problem?", height=120)
 
     if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
-        # --- ZABEZPIECZENIE (PAYWALL) ---
         if not is_pro:
             st.session_state['generated_doc'] = "DEMO_MODE"
             st.session_state['s_name'] = "Wzór Dokumentu"
@@ -292,33 +287,44 @@ with tab1:
                     for f in files: data_text += f"\n--- PLIK DANYCH: {f.name} ---\n" + extract_text_from_file(f)
                 
                 if template_text:
-                    template_instruction = f"Użytkownik wgrał WŁASNY SZABLON dokumentu. Twoim priorytetem jest zastosowanie tego układu oraz wszystkich tabel, które się w nim znajdują:\n{template_text}"
+                    template_instruction = f"Użytkownik wgrał WŁASNY SZABLON dokumentu. Twoim absolutnym priorytetem jest zastosowanie jego układu oraz wszystkich nagłówków i tabel, które się w nim znajdują:\n{template_text}"
                 else:
-                    template_instruction = f"WYMAGANIA DLA TEGO DOKUMENTU: {MEN_RULES[doc_type]}"
+                    template_instruction = f"WYMAGANIA STRUKTURALNE DLA TEGO DOKUMENTU: {MEN_RULES[doc_type]}"
 
-                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej i doświadczonym diagnostą pracującym w polskim systemie oświaty. 
-                TWOIM ZADANIEM JEST PROFESJONALNE PRZEREDAGOWANIE I WYPEŁNIENIE DOKUMENTU: {doc_type}.
+                # --- NOWY, "ULTRA-PROFESJONALNY" PROMPT DLA AI ---
+                sys_msg = f"""Jesteś wybitnym diagnostą, ekspertem pedagogiki specjalnej i psychologii z 25-letnim stażem, pracującym w polskim systemie oświaty. 
+                TWOIM ZADANIEM JEST STWORZENIE DOKUMENTU: {doc_type}.
                 
-                ZASADY KRYTYCZNE (MUSISZ ICH PRZESTRZEGAĆ):
+                ZASADY KRYTYCZNE (ZŁAMANIE ICH TO BŁĄD KRYTYCZNY):
                 1. {template_instruction}
-                2. ZABRANIA SIĘ BEZMYŚLNEGO KOPIOWANIA TEKSTU Z ORZECZEŃ 1:1. Musisz przeanalizować wgrane dane, wyciągnąć z nich sens i PRZEREDAGOWAĆ je własnymi słowami. Twoim zadaniem jest SYNTEZA i diagnoza.
-                3. Pisz jak PROFESJONALNY PEDAGOG. Używaj bogatego, specjalistycznego języka urzędowego (np. "zaburzenia integracji sensorycznej", "deficyty w sferze poznawczej", "stymulacja polisensoryczna", "dostosowanie wymagań edukacyjnych", "obniżony tonus mięśniowy"). Dokument ma brzmieć wysoce urzędowo i ekspercko.
-                4. Jeśli w układzie jest JAKAKOLWIEK TABELA, MUSISZ ją odtworzyć w standardzie Markdown (separator |---| jest obowiązkowy!).
-                5. Zachowaj odpowiednie nagłówki.
-                6. Zwróć tylko czysty dokument w Markdown. Żadnych wstępów ani komentarzy."""
+                
+                2. ABSOLUTNY ZAKAZ KOPIOWANIA! Surowe notatki od nauczyciela lub treść orzeczeń traktujesz tylko jako materiał źródłowy. ZABRANIAM CI przepisywania ich słowo w słowo. Twoim zadaniem jest GŁĘBOKA SYNTEZA i PRZEREDAGOWANIE tych informacji w profesjonalny, analityczny dokument.
+                
+                3. STYL I ŻARGON (NAJWAŻNIEJSZE):
+                   Używaj wyłącznie wysoce specjalistycznego żargonu pedagogiczno-psychologicznego. Dokument ma brzmieć poważnie i oficjalnie. 
+                   PRZYKŁADY TRANSFORMACJI (Wzoruj się na tym!):
+                   - ŹLE: "Jaś ciągle biega po klasie, nie słucha poleceń i bije inne dzieci. Bardzo lubi pociągi."
+                   - DOBRZE: "Obserwuje się znaczną nadpobudliwość psychoruchową z towarzyszącymi deficytami w sferze koncentracji uwagi dowolonej. Uczeń przejawia trudności w samoregulacji emocjonalnej oraz dezadaptacyjne zachowania w obszarze kompetencji społecznych. W sferze motywacyjnej dominują zawężone fiksacje wokół motywów transportowych."
+                   - ŹLE: "Trzeba mu dawać więcej czasu na sprawdzianach."
+                   - DOBRZE: "Rekomenduje się elastyczne dostosowanie ram czasowych podczas weryfikacji wiedzy, uwzględniające indywidualne tempo pracy oraz spowolniony proces przetwarzania informacji."
+                
+                4. SŁOWNIK POMOCNICZY: Używaj słów takich jak: percepcja, motoryka mała/duża, koordynacja wzrokowo-ruchowa, analiza i synteza, deficyty, stymulacja polisensoryczna, dostosowanie wymagań edukacyjnych, samoregulacja, funkcje poznawcze.
+                
+                5. Jeśli w układzie (szablonie) jest JAKAKOLWIEK TABELA, MUSISZ ją bezwzględnie odtworzyć w formacie Markdown (separator |---|).
+                6. Zwróć tylko czysty dokument w Markdown. Żadnych wstępów ani komentarzy pobocznych."""
 
                 usr_msg = f"""DANE UCZNIA: {s_name}, {s_info}.
                 DIAGNOZA GŁÓWNA: {diagnosis}.
-                ZASOBY (Mocne strony): {strengths}.
-                BARIERY (Trudności): {weaknesses}.
-                ANALIZA ORZECZEŃ I DANYCH (Do przetworzenia i przeredagowania): {data_text[:12000]}"""
+                ZASOBY (Mocne strony, wpisane potocznie - PRZEREDAGUJ NA ŻARGON): {strengths}.
+                BARIERY (Trudności, wpisane potocznie - PRZEREDAGUJ NA ŻARGON): {weaknesses}.
+                SUROWE ORZECZENIA DO ZSYNTEZOWANIA: {data_text[:12000]}"""
 
                 try:
                     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
                     payload = {
                         "model": "gpt-4o-mini",
                         "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                        "temperature": 0.45 # Zwiększona temperatura wymusza na modelu "kreatywność" w doborze profesjonalnego słownictwa zamiast kopiowania wprost
+                        "temperature": 0.55 # Wyższa temperatura = Większa wolność w doborze bogatego słownictwa, AI przestaje być skanerem-kopiarką
                     }
                     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
                     
@@ -337,13 +343,11 @@ with tab2:
     if 'generated_doc' in st.session_state:
         doc = st.session_state['generated_doc']
         
-        # --- TRYB POKAZOWY ---
         if doc == "DEMO_MODE":
             st.warning("👀 Tryb Pokazowy. Poniżej znajduje się przykładowy dokument. Odblokuj pełen dostęp kodem KAWA2024, aby pobrać go jako gotowy plik z ustawionymi czcionkami!")
             st.markdown("---")
             st.markdown(f"<div class='a4-paper'>{DEMO_DOCUMENT}</div>", unsafe_allow_html=True)
             
-        # --- TRYB PEŁNY (PRO) ---
         else:
             st.subheader("📥 Eksport i Drukowanie")
             c_dl1, c_dl2 = st.columns(2)
