@@ -11,7 +11,7 @@ except ImportError:
     st.error("Brak biblioteki PyPDF2. Dodaj 'PyPDF2' do pliku requirements.txt")
 try:
     import docx
-    from docx.shared import Pt, Inches
+    from docx.shared import Pt, Inches, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 except ImportError:
     st.error("Brak biblioteki python-docx. Dodaj 'python-docx' do pliku requirements.txt")
@@ -46,7 +46,7 @@ st.markdown("""
     .a4-paper {
         background-color: white; padding: 50px 70px; border-radius: 2px;
         box-shadow: 0 20px 50px rgba(0,0,0,0.1); color: #1e293b;
-        font-family: 'Times New Roman', Times, serif; font-size: 15px;
+        font-family: 'Times New Roman', Times, serif; font-size: 16px;
         line-height: 1.6; min-height: 1000px; border: 1px solid #e2e8f0;
         margin: 10px auto; max-width: 850px;
     }
@@ -113,16 +113,28 @@ def extract_text_from_file(uploaded_file):
     except Exception as e: st.error(f"Błąd odczytu pliku: {e}")
     return text
 
-# --- GENERATOR PLIKU WORD (.DOCX) Z TABELAMI ---
+# --- GENERATOR PLIKU WORD (.DOCX) Z URZĘDOWYMI CZCIONKAMI ---
 def create_word_document(content_text, doc_type, student_name):
     doc = docx.Document()
     section = doc.sections[0]
     section.left_margin = section.right_margin = Inches(1)
     
+    # GŁÓWNY STYL URZĘDOWY: Times New Roman 12pt
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
-    style.font.size = Pt(11)
+    style.font.size = Pt(12)
     
+    # STYLE NAGŁÓWKÓW URZĘDOWYCH: Times New Roman 14pt, pogrubione, czarne
+    for i in range(1, 4):
+        try:
+            heading_style = doc.styles[f'Heading {i}']
+            heading_style.font.name = 'Times New Roman'
+            heading_style.font.size = Pt(14)
+            heading_style.font.color.rgb = RGBColor(0, 0, 0)
+            heading_style.font.bold = True
+        except KeyError:
+            pass
+
     h = doc.add_heading(doc_type.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph(f"Uczeń: {student_name}").bold = True
@@ -197,27 +209,27 @@ DEMO_DOCUMENT = """
 **Klasa:** 2a
 
 ## 1. Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia (WOPFU) - Podsumowanie
-Uczeń wykazuje bardzo dobre zdolności w zakresie logicznego myślenia oraz zapamiętywania ciągów liczbowych. Główne trudności obserwuje się w obszarze integracji sensorycznej oraz nawiązywania relacji rówieśniczych w grupie (spektrum autyzmu).
+W oparciu o zgromadzoną dokumentację diagnostyczną oraz obserwację bezpośrednią, uczeń wykazuje ponadprzeciętne predyspozycje w sferze operacji logiczno-matematycznych. Główne obszary deficytowe koncentrują się wokół zaburzeń integracji sensorycznej oraz obniżonych kompetencji w zakresie inicjowania i podtrzymywania relacji rówieśniczych.
 
 ## 2. Zakres i sposób dostosowania wymagań edukacyjnych
-- Wydłużenie czasu na sprawdzianach o 50%.
-- Dzielenie dłuższych poleceń na krótsze, proste komunikaty.
-- Zapewnienie wyciszonego miejsca pracy, z dala od bodźców rozpraszających.
-- <span class='blurred-text'>Dostosowanie formy sprawdzania wiedzy do możliwości psychofizycznych ucznia. Zamiast odpowiedzi ustnych, preferowane odpowiedzi pisemne lub testy wyboru.</span>
+- Wydłużenie limitu czasu podczas weryfikacji wiedzy o 50%.
+- Stosowanie zasady gradacji trudności oraz dzielenie złożonych komunikatów na etapy.
+- Zabezpieczenie optymalnego, pozbawionego nadmiernych dystraktorów środowiska pracy.
+- <span class='blurred-text'>Dostosowanie formy sprawdzania wiedzy do możliwości psychofizycznych ucznia. Zamiast weryfikacji werbalnej, rekomenduje się stosowanie testów wyboru.</span>
 
 ## 3. Zintegrowane działania nauczycieli i specjalistów
-- Udział w Treningu Umiejętności Społecznych (TUS) - 1 godzina w tygodniu.
-- <span class='blurred-text'>Stała współpraca wychowawcy z psychologiem szkolnym w celu monitorowania nastroju i zachowań agresywnych podczas przerw. Konsultacje z logopedą raz w miesiącu.</span>
+- Objęcie ucznia cyklicznym wsparciem w ramach Treningu Umiejętności Społecznych (TUS).
+- <span class='blurred-text'>Permanentna ewaluacja samopoczucia przez pedagoga szkolnego oraz modyfikacja czynników środowiskowych w celu minimalizacji zachowań niepożądanych.</span>
 
 <div class='demo-watermark'>
     🔒 DALSZA CZĘŚĆ DOKUMENTU ZABLOKOWANA<br/>
-    <span style='font-size:12px; font-weight:normal;'>To jest tylko statyczny wzór. Aby Sztuczna Inteligencja przeanalizowała TWOJE dane, wgrała tabele i napisała pełny, spersonalizowany dokument, odblokuj aplikację Kodem Premium!</span>
+    <span style='font-size:12px; font-weight:normal;'>To jest tylko statyczny wzór. Aby Sztuczna Inteligencja przeanalizowała TWOJE dane jako PROFESJONALNY DIAGNOSTA, odblokuj aplikację Kodem Premium!</span>
 </div>
 """
 
 # --- INTERFEJS ---
 st.title("🎓 Asystent Pedagoga PRO v2")
-st.markdown('<div class="men-badge">🏆 KLASA S: Inteligentne Tabele i Formaty Placówek</div>', unsafe_allow_html=True)
+st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie i Język Ekspercki</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("🔑 Autoryzacja")
@@ -259,20 +271,20 @@ with tab1:
     with c4:
         weaknesses = st.text_area("🚧 Trudności / Bariery:", placeholder="Z czym ma największy problem?", height=120)
 
-    if st.button("⚙️ GENERUJ DOKUMENT"):
+    if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
         # --- ZABEZPIECZENIE (PAYWALL) ---
         if not is_pro:
             st.session_state['generated_doc'] = "DEMO_MODE"
             st.session_state['s_name'] = "Wzór Dokumentu"
             st.session_state['doc_type'] = "IPET (Wzór)"
-            st.error("🔒 Odmowa dostępu: Aby wygenerować pełny dokument i wypełniać szablony tabel, wesprzyj projekt wirtualną kawą i wpisz Kod Premium w panelu po lewej stronie!")
+            st.error("🔒 Odmowa dostępu: Aby wygenerować pełny dokument używając silnika profesjonalnego redagowania, wesprzyj projekt wirtualną kawą i wpisz Kod Premium w panelu po lewej stronie!")
             st.info("👉 Przejdź do zakładki 'Podgląd i Wydruk', aby zobaczyć PRZYKŁADOWY WZÓR dokumentu.")
         elif not OPENAI_API_KEY:
             st.error("⚠️ Brak skonfigurowanego klucza OpenAI w Streamlit Secrets!")
         elif not s_name or not diagnosis:
             st.error("⚠️ Podaj przynajmniej imię i diagnozę główną ucznia!")
         else:
-            with st.spinner("🚀 Weryfikuję dane, analizuję szablony i piszę dokument..."):
+            with st.spinner("🚀 AI diagnozuje i przeredagowuje dokumenty fachowym językiem... To zajmie ok. 15-20 sekund."):
                 template_text = extract_text_from_file(template_file) if template_file else ""
                 
                 data_text = ""
@@ -284,27 +296,29 @@ with tab1:
                 else:
                     template_instruction = f"WYMAGANIA DLA TEGO DOKUMENTU: {MEN_RULES[doc_type]}"
 
-                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej. 
-                TWOIM ZADANIEM JEST NAPISANIE LUB WYPEŁNIENIE DOKUMENTU: {doc_type}.
+                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej i doświadczonym diagnostą pracującym w polskim systemie oświaty. 
+                TWOIM ZADANIEM JEST PROFESJONALNE PRZEREDAGOWANIE I WYPEŁNIENIE DOKUMENTU: {doc_type}.
                 
-                ZASADY KRYTYCZNE:
+                ZASADY KRYTYCZNE (MUSISZ ICH PRZESTRZEGAĆ):
                 1. {template_instruction}
-                2. Jeśli w układzie jest JAKAKOLWIEK TABELA, MUSISZ ją odtworzyć w standardzie Markdown (separator |---| jest obowiązkowy!).
-                3. Zachowaj odpowiednie nagłówki.
-                4. Zwróć tylko czysty dokument w Markdown. Żadnych wstępów ani komentarzy."""
+                2. ZABRANIA SIĘ BEZMYŚLNEGO KOPIOWANIA TEKSTU Z ORZECZEŃ 1:1. Musisz przeanalizować wgrane dane, wyciągnąć z nich sens i PRZEREDAGOWAĆ je własnymi słowami. Twoim zadaniem jest SYNTEZA i diagnoza.
+                3. Pisz jak PROFESJONALNY PEDAGOG. Używaj bogatego, specjalistycznego języka urzędowego (np. "zaburzenia integracji sensorycznej", "deficyty w sferze poznawczej", "stymulacja polisensoryczna", "dostosowanie wymagań edukacyjnych", "obniżony tonus mięśniowy"). Dokument ma brzmieć wysoce urzędowo i ekspercko.
+                4. Jeśli w układzie jest JAKAKOLWIEK TABELA, MUSISZ ją odtworzyć w standardzie Markdown (separator |---| jest obowiązkowy!).
+                5. Zachowaj odpowiednie nagłówki.
+                6. Zwróć tylko czysty dokument w Markdown. Żadnych wstępów ani komentarzy."""
 
                 usr_msg = f"""DANE UCZNIA: {s_name}, {s_info}.
                 DIAGNOZA GŁÓWNA: {diagnosis}.
                 ZASOBY (Mocne strony): {strengths}.
                 BARIERY (Trudności): {weaknesses}.
-                ANALIZA ORZECZEŃ I DANYCH: {data_text[:12000]}"""
+                ANALIZA ORZECZEŃ I DANYCH (Do przetworzenia i przeredagowania): {data_text[:12000]}"""
 
                 try:
                     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
                     payload = {
                         "model": "gpt-4o-mini",
                         "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                        "temperature": 0.25
+                        "temperature": 0.45 # Zwiększona temperatura wymusza na modelu "kreatywność" w doborze profesjonalnego słownictwa zamiast kopiowania wprost
                     }
                     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
                     
@@ -325,7 +339,7 @@ with tab2:
         
         # --- TRYB POKAZOWY ---
         if doc == "DEMO_MODE":
-            st.warning("👀 Tryb Pokazowy. Poniżej znajduje się przykładowy dokument. Odblokuj pełen dostęp kodem KAWA2024, aby pobrać i generować własne dokumenty z tabelami!")
+            st.warning("👀 Tryb Pokazowy. Poniżej znajduje się przykładowy dokument. Odblokuj pełen dostęp kodem KAWA2024, aby pobrać go jako gotowy plik z ustawionymi czcionkami!")
             st.markdown("---")
             st.markdown(f"<div class='a4-paper'>{DEMO_DOCUMENT}</div>", unsafe_allow_html=True)
             
@@ -337,7 +351,7 @@ with tab2:
                 word_buf = create_word_document(doc, st.session_state.get('doc_type', 'Dokument'), st.session_state['s_name'])
                 st.download_button("📁 POBIERZ PLIK WORD (.DOCX)", word_buf, file_name=f"dokument_{st.session_state['s_name']}.docx", type="primary", use_container_width=True)
             with c_dl2:
-                st.info("💡 AI zbudowało obramowane tabele. Zobaczysz je po pobraniu pliku Word!")
+                st.info("💡 Plik Word używa teraz wyłącznie czcionki Times New Roman (Rozmiar 12 dla tekstu, 14 dla nagłówków).")
 
             st.markdown("---")
             st.markdown("### 🖥️ Podgląd arkusza A4")
