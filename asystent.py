@@ -64,12 +64,28 @@ def extract_text_from_file(uploaded_file):
             for page in reader.pages: text += page.extract_text() + "\n"
         elif uploaded_file.name.endswith('.docx'):
             doc = docx.Document(uploaded_file)
-            for para in doc.paragraphs: text += para.text + "\n"
+            # 1. Czytanie zwykłych akapitów
+            for para in doc.paragraphs: 
+                if para.text.strip(): text += para.text + "\n"
+            # 2. Czytanie TABEL (Wcześniej AI ich nie widziało!)
+            for table in doc.tables:
+                text += "\n[TUTAJ ZACZYNA SIĘ TABELA DO WYPEŁNIENIA]\n"
+                for row in table.rows:
+                    row_data = [cell.text.replace('\n', ' ').strip() for cell in row.cells]
+                    text += "| " + " | ".join(row_data) + " |\n"
+                text += "[KONIEC TABELI]\n\n"
         elif uploaded_file.name.endswith('.txt'):
             text = uploaded_file.getvalue().decode("utf-8")
     except Exception as e: st.error(f"Błąd odczytu pliku: {e}")
     return text
 
+def _add_bold_parts(paragraph, text):
+    parts = text.split('**')
+    for i, part in enumerate(parts):
+        run = paragraph.add_run(part)
+        if i % 2 != 0: run.bold = True
+
+# --- GENERATOR PLIKU WORD Z TABELAMI ---
 def create_word_document(content_text, student_name):
     doc = docx.Document()
     section = doc.sections[0]
@@ -81,17 +97,56 @@ def create_word_document(content_text, student_name):
     doc.add_paragraph(f"Uczeń: {student_name}").bold = True
     doc.add_paragraph("-" * 80)
     
-    for line in content_text.split('\n'):
+    in_table = False
+    table = None
+    
+    lines = content_text.split('\n')
+    for line in lines:
         line = line.strip()
-        if not line: doc.add_paragraph(); continue
+        if not line: 
+            in_table = False
+            doc.add_paragraph()
+            continue
+            
+        # Detekcja i budowa tabeli Markdown w pliku Word
+        if line.startswith('|') and line.endswith('|'):
+            cells = [c.strip() for c in line.split('|')[1:-1]]
+            
+            # Ignorowanie wiersza oddzielającego nagłówki (np. |---|---|)
+            if all(c.replace('-', '').replace(':', '').strip() == '' for c in cells):
+                continue
+                
+            if not in_table:
+                in_table = True
+                # Tworzymy nową tabelę w Wordzie
+                table = doc.add_table(rows=1, cols=len(cells))
+                table.style = 'Table Grid'
+                hdr_cells = table.rows[0].cells
+                for i, cell_text in enumerate(cells):
+                    if i < len(hdr_cells):
+                        hdr_cells[i].text = ""
+                        _add_bold_parts(hdr_cells[i].paragraphs[0], cell_text)
+            else:
+                # Dodajemy wiersz do istniejącej tabeli
+                row_cells = table.add_row().cells
+                for i, cell_text in enumerate(cells):
+                    if i < len(row_cells):
+                        row_cells[i].text = ""
+                        _add_bold_parts(row_cells[i].paragraphs[0], cell_text)
+            continue
+        else:
+            in_table = False
+            
+        # Generowanie zwykłych tekstów i nagłówków
         if line.startswith('### '): doc.add_heading(line[4:], level=3)
         elif line.startswith('## '): doc.add_heading(line[3:], level=2)
         elif line.startswith('# '): doc.add_heading(line[2:], level=1)
         elif line.startswith('- ') or line.startswith('* '):
             p = doc.add_paragraph(style='List Bullet')
-            p.add_run(line[2:])
+            _add_bold_parts(p, line[2:])
         else:
-            doc.add_paragraph(line)
+            p = doc.add_paragraph()
+            _add_bold_parts(p, line)
             
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -100,7 +155,7 @@ def create_word_document(content_text, student_name):
 
 # --- INTERFEJS ---
 st.title("🎓 Asystent Pedagoga PRO v2")
-st.markdown('<div class="men-badge">🏆 KLASA S: Inteligentne Szablony i Tabele</div>', unsafe_allow_html=True)
+st.markdown('<div class="men-badge">🏆 KLASA S: Inteligentne Szablony i Rysowanie Tabel</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("🔑 Autoryzacja")
@@ -113,7 +168,8 @@ tab1, tab2 = st.tabs(["📁 1. Dane i Szablony", "📝 2. Podgląd i Wydruk"])
 
 with tab1:
     st.subheader("1. Wzór dokumentu (Twój Szablon)")
-    template_file = st.file_uploader("Wgraj tutaj pusty wzór lub dokument z tabelą, który AI ma naśladować:", type=['pdf', 'docx'])
+    st.info("💡 Jeśli Twój szablon posiada tabele, koniecznie wgraj go w formacie **.DOCX (Word)**. AI idealnie rozpozna wtedy układ kolumn i wierszy!")
+    template_file = st.file_uploader("Wgraj tutaj pusty wzór z tabelą, który AI ma naśladować (tylko DOCX lub PDF):", type=['pdf', 'docx'])
     
     st.markdown("---")
     st.subheader("2. Dane ucznia i diagnoza")
@@ -138,25 +194,24 @@ with tab1:
         elif not s_name or not diagnosis:
             st.error("⚠️ Podaj przynajmniej imię i diagnozę!")
         else:
-            with st.spinner("🚀 Analizuję szablon i piszę dokument..."):
-                # Pobranie wzoru
-                template_text = extract_text_from_file(template_file) if template_file else "Brak wzoru, użyj standardowej struktury IPET."
+            with st.spinner("🚀 Analizuję układ tabel w Twoim szablonie i piszę dokument..."):
+                template_text = extract_text_from_file(template_file) if template_file else "Brak wzoru, użyj standardowej struktury IPET w formie tabelarycznej."
                 
-                # Pobranie danych z orzeczeń
                 data_text = ""
                 if files:
                     for f in files: data_text += f"\n--- PLIK DANYCH: {f.name} ---\n" + extract_text_from_file(f)
                 
-                sys_msg = f"""Jesteś ekspertem pedagogiki specjalnej. 
-                TWOIM PRIORYTETEM JEST UKŁAD DOKUMENTU.
+                sys_msg = f"""Jesteś wybitnym ekspertem pedagogiki specjalnej. 
+                TWOIM BEZWZGLĘDNYM PRIORYTETEM JEST ZACHOWANIE STRUKTURY DOKUMENTU.
+                
                 SZABLON DO NAŚLADOWANIA:
                 {template_text}
                 
-                ZASADY:
-                1. Jeśli powyższy szablon zawiera tabele, odtwórz je w Markdown.
-                2. Zachowaj wszystkie nagłówki i kolejność sekcji z szablonu.
-                3. Wypełnij sekcje szablonu profesjonalną treścią na podstawie danych ucznia.
-                4. Styl formalny. Zwróć TYLKO czysty tekst dokumentu."""
+                ZASADY KRYTYCZNE:
+                1. MUSISZ odtworzyć KARDĄ tabelę znajdującą się w szablonie, używając formatu Markdown (np. | Kolumna 1 | Kolumna 2 |). To Twój główny obowiązek.
+                2. MUSISZ zachować i napisać wszystkie nagłówki z szablonu (używaj # dla tytułów, ## dla sekcji).
+                3. Wypełnij wiersze tabeli oraz sekcje profesjonalną, konkretną treścią na podstawie danych ucznia.
+                4. Zwróć TYLKO czysty dokument w formacie Markdown. Żadnych wstępów, żadnych uwag końcowych."""
 
                 usr_msg = f"""DANE UCZNIA: {s_name}
                 DIAGNOZA: {diagnosis}
@@ -169,7 +224,7 @@ with tab1:
                     payload = {
                         "model": "gpt-4o-mini",
                         "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                        "temperature": 0.3 # Niższa temperatura = większa dokładność w trzymaniu się szablonu
+                        "temperature": 0.2 
                     }
                     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=90)
                     
