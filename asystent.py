@@ -184,9 +184,10 @@ def _add_bold_parts(paragraph, text):
 
 # --- BAZA WIEDZY MEN I WZÓR POKAZOWY ---
 MEN_RULES = {
-    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura musi zawierać: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpracę z rodzicami oraz ocenę efektywności.",
-    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura musi zawierać: Indywidualne potrzeby, mocne strony, przyczyny niepowodzeń, bariery środowiskowe oraz wnioski do pracy.",
-    "Opinia o uczniu / Arkusz obserwacji": "Struktura musi zawierać: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz zalecenia.",
+    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpraca z rodzicami oraz ocena efektywności.",
+    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura: Indywidualne potrzeby, mocne strony, przyczyny niepowodzeń, bariery środowiskowe oraz wnioski do pracy.",
+    "Informacja o gotowości dziecka do podjęcia nauki w szkole podstawowej": "Struktura: Stopień opanowania wymagań programowych, mocne strony i uzdolnienia, trudności, obszary wymagające wsparcia oraz wnioski o gotowości.",
+    "Opinia o uczniu / Arkusz obserwacji": "Struktura: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz zalecenia.",
     "Własny Dokument / Inny (Zgodnie z szablonem placówki)": "Wygeneruj dokument ściśle według szablonu podanego przez użytkownika."
 }
 
