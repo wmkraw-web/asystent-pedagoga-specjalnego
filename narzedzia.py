@@ -2,6 +2,7 @@ import requests
 import io
 import streamlit as st
 import json
+import base64  # Dodana nowa biblioteka do odkodowywania obrazków!
 
 try:
     import PyPDF2
@@ -33,7 +34,7 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
     except Exception as e:
         return f"Błąd komunikacji: {str(e)}"
 
-# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (SZYBKI MODEL GPT-IMAGE-1-MINI) ---
 def call_openai_image(api_key, image_prompt):
     if not api_key:
         return None, "Brak klucza API."
@@ -43,21 +44,32 @@ def call_openai_image(api_key, image_prompt):
             "model": "gpt-image-1-mini",
             "prompt": image_prompt,
             "n": 1,
-            "size": "1024x1024"
+            "size": "1024x1024",
+            "response_format": "b64_json" # Wymuszamy najszybszy format kodowania
         }
         response = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=payload, timeout=120)
         
         if response.ok:
             data = response.json()
-            if "data" in data and len(data["data"]) > 0 and "url" in data["data"][0]:
-                image_url = data["data"][0]["url"]
-                img_response = requests.get(image_url)
-                if img_response.ok:
-                    return io.BytesIO(img_response.content), None
+            if "data" in data and len(data["data"]) > 0:
+                img_data = data["data"][0]
+                
+                # SCENARIUSZ 1: Nowy model wysyła obraz w kodzie (b64_json) - NAJSZYBSZE
+                if "b64_json" in img_data:
+                    image_bytes = base64.b64decode(img_data["b64_json"])
+                    return io.BytesIO(image_bytes), None
+                    
+                # SCENARIUSZ 2: Model wysyła klasyczny link (url)
+                elif "url" in img_data:
+                    image_url = img_data["url"]
+                    img_response = requests.get(image_url)
+                    if img_response.ok:
+                        return io.BytesIO(img_response.content), None
+                    else:
+                        return None, "Błąd podczas pobierania wygenerowanego obrazka z linku."
                 else:
-                    return None, "Błąd podczas pobierania wygenerowanego obrazka z linku."
+                    return None, f"Błąd: Nieznany format odpowiedzi. Surowe dane: {json.dumps(data)}"
             else:
-                # DIAGNOSTYKA: Jeśli nie ma linku, wypluwamy dokładną odpowiedź serwera na ekran!
                 return None, f"Błąd (Brak obrazka). Surowe dane z serwera: {json.dumps(data)}"
         else:
             try:
