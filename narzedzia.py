@@ -27,20 +27,15 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
         if response.ok:
             return response.json()["choices"][0]["message"]["content"]
-        else:
-            return f"Błąd API: {response.text}"
-    except Exception as e:
-        return f"Błąd komunikacji: {str(e)}"
-
-# --- FUNKCJA: GENEROWANIE OBRAZU (NOWY MODEL) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3 - NAPRAWIONE) ---
 def call_openai_image(api_key, image_prompt):
+    import json # Wymuszenie ładowania biblioteki JSON do testów
     if not api_key:
         return None, "Brak klucza API."
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {
-            # ZMIANA NA NOWY, SZYBKI I TANI MODEL ZGODNIE Z KOMUNIKATEM!
-            "model": "gpt-image-1-mini", 
+            "model": "dall-e-3",
             "prompt": image_prompt,
             "n": 1,
             "size": "1024x1024"
@@ -55,11 +50,16 @@ def call_openai_image(api_key, image_prompt):
                 if img_response.ok:
                     return io.BytesIO(img_response.content), None
                 else:
-                    return None, "Błąd podczas pobierania wygenerowanego obrazka."
+                    return None, "Błąd podczas pobierania wygenerowanego obrazka z linku."
             else:
-                return None, "Błąd krytyczny: OpenAI nie zwróciło linku do grafiki."
+                # DIAGNOSTYKA: Jeśli nie ma linku, wypluwamy dokładną odpowiedź serwera na ekran!
+                return None, f"Błąd (Brak obrazka). Surowe dane z serwera: {json.dumps(data)}"
         else:
-            return None, f"Błąd API Obrazów: {response.text}"
+            try:
+                err_data = response.json()
+                return None, f"Odrzucono (Kod {response.status_code}). Powód: {json.dumps(err_data)}"
+            except:
+                return None, f"Błąd API Obrazów: {response.text}"
     except Exception as e:
         return None, f"Błąd komunikacji: {str(e)}"
 
