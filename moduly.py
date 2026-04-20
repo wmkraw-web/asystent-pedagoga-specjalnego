@@ -26,8 +26,8 @@ def modul_asystent_dokumentow(api_key, is_pro):
     st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie i Język Ekspercki</div>', unsafe_allow_html=True)
     
     MEN_RULES = {
-        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów...",
-        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania)": "Struktura: Indywidualne potrzeby, mocne strony, bariery...",
+        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów, ocena efektywności.",
+        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania)": "Struktura: Indywidualne potrzeby, mocne strony, bariery, przyczyny niepowodzeń.",
         "Opinia o uczniu do Poradni PPP": "Struktura: Opis funkcjonowania poznawczego, społecznego, emocjonalnego. Ton obiektywny, nieoceniający, bazujący na faktach.",
     }
     
@@ -38,17 +38,30 @@ def modul_asystent_dokumentow(api_key, is_pro):
         with c1:
             s_name = st.text_input("Imię / Inicjały ucznia:")
             diagnosis = st.text_area("Diagnoza główna / Powód opinii:", height=100)
-        with c2:
             strengths = st.text_area("💪 Mocne strony:", height=100)
             weaknesses = st.text_area("🚧 Trudności / Niepokojące zachowania:", height=100)
+        with c2:
+            files = st.file_uploader("Wgraj orzeczenia z Poradni do analizy (Opcjonalnie PDF/DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+            custom_template = st.text_area("📋 Wklej wzór / strukturę wymaganą w Twojej placówce (Opcjonalnie):", placeholder="np. 1. Funkcjonowanie społeczne, 2. Motoryka, 3. Zalecenia...", height=230)
             
         if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
             if not is_pro: st.error("Wymagany Kod Premium (KAWA2024)")
             elif not s_name or not diagnosis: st.warning("Podaj imię i diagnozę.")
             else:
-                with st.spinner("Przetwarzam fachowym żargonem zgodnym z MEN..."):
-                    sys_prompt = f"Jesteś wybitnym diagnostą i pedagogiem. Napisz dokument: {doc_type}. Używaj wysoce specjalistycznego żargonu pedagogicznego i psychologicznego. Zadbaj o zgodność z polskim prawem oświatowym i wytycznymi MEN."
-                    user_prompt = f"Imię: {s_name}\nDiagnoza: {diagnosis}\nMocne: {strengths}\nSłabe: {weaknesses}\nWymagania: {MEN_RULES[doc_type]}"
+                with st.spinner("Przetwarzam fachowym żargonem zgodnym z MEN i analizuję pliki..."):
+                    # Pobieranie tekstu z plików
+                    full_text = ""
+                    if files:
+                        for f in files: full_text += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
+                    
+                    template_instruction = f"WYMAGANA STRUKTURA DOKUMENTU: Należy BEZWZGLĘDNIE zastosować poniższy układ i szczegółowo go wypełnić:\n{custom_template}" if custom_template.strip() else f"WYMAGANIA MEN: {MEN_RULES[doc_type]}"
+
+                    sys_prompt = f"""Jesteś wybitnym diagnostą i pedagogiem. Napisz BARDZO SZCZEGÓŁOWY i ROZBUDOWANY dokument: {doc_type}. 
+                    Używaj wysoce specjalistycznego żargonu pedagogicznego i psychologicznego. Zadbaj o zgodność z polskim prawem oświatowym i wytycznymi MEN.
+                    Dokument ma być wyczerpujący, analityczny i zawierać konkretne wskazówki do pracy. Unikaj powierzchownych, jednozdaniowych haseł.
+                    ZASADY: 1. {template_instruction}"""
+                    
+                    user_prompt = f"Imię: {s_name}\nDiagnoza: {diagnosis}\nMocne: {strengths}\nSłabe: {weaknesses}\nPliki do analizy: {full_text[:15000]}"
                     result = call_openai_text(api_key, sys_prompt, user_prompt, 0.5)
                     st.session_state['gen_doc'] = result
                     st.session_state['doc_title'] = doc_type
@@ -67,14 +80,14 @@ def modul_asystent_dokumentow(api_key, is_pro):
 # ==========================================
 def modul_historyjki_spoleczne(api_key, is_pro):
     st.header("🧩 Generator Historyjek Społecznych")
-    st.markdown("Tworzy terapeutyczne opowiadania (Social Stories) dla dzieci w spektrum autyzmu oraz **generuje ilustrację** za pomocą sztucznej inteligencji!")
+    st.markdown("Tworzy szczegółowe opowiadania (Social Stories) dla dzieci oraz **generuje grafiki przyczynowo-skutkowe**!")
     
     c1, c2 = st.columns([1, 1])
     with c1:
         imie = st.text_input("Imię dziecka:")
         wiek = st.number_input("Wiek dziecka:", min_value=2, max_value=15, value=5)
-        problem = st.text_area("Sytuacja problemowa (Zapalnik/Trigger):", placeholder="Np. Zosia bardzo boi się dźwięku szkolnego dzwonka lub odkurzacza.")
-        rozwiazanie = st.text_area("Oczekiwana reakcja / Strategia radzenia sobie:", placeholder="Np. Zakładamy słuchawki wyciszające, robimy głęboki wdech.")
+        problem = st.text_area("Sytuacja problemowa (Zapalnik/Trigger):", placeholder="Np. Zosia bardzo boi się dźwięku odkurzacza.")
+        rozwiazanie = st.text_area("Oczekiwana reakcja / Strategia radzenia sobie:", placeholder="Np. Zakładamy słuchawki wyciszające, idziemy do drugiego pokoju.")
         
         if st.button("📖 Wygeneruj Historyjkę i Obrazek"):
             if not api_key:
@@ -82,16 +95,22 @@ def modul_historyjki_spoleczne(api_key, is_pro):
             elif not is_pro:
                 st.error("Funkcja wymaga kodu Premium (KAWA2024).")
             elif imie and problem:
-                with st.spinner("1/2 Pisanie specjalistycznej historyjki..."):
-                    sys_prompt = f"""Jesteś certyfikowanym terapeutą behawioralnym. Napisz Historyjkę Społeczną dla {wiek}-letniego dziecka z autyzmem.
-                    ZASADY: Krótkie akapity, język dosłowny (zero metafor i przenośni). Zwróć sam czysty tekst.
-                    STRUKTURA: 1. Fakty (gdzie, kto), 2. Perspektywa (co czują inni), 3. Dyrektywy (co zrobić krok po kroku), 4. Afirmacja."""
+                with st.spinner("1/2 Pisanie rozbudowanej historyjki..."):
+                    sys_prompt = f"""Jesteś certyfikowanym terapeutą behawioralnym. Napisz SZCZEGÓŁOWĄ i ROZBUDOWANĄ Historyjkę Społeczną dla {wiek}-letniego dziecka z autyzmem.
+                    ZASADY: Język dosłowny (zero metafor). Zwróć sam czysty tekst, używaj wyraźnych akapitów.
+                    WYMAGANA STRUKTURA: 
+                    1. Wstęp (kim jest bohater, co lubi).
+                    2. Sytuacja (gdzie jest i co dokładnie się dzieje).
+                    3. Uczucie (nazwanie emocji - np. strach, złość).
+                    4. Rozwiązanie / Strategia (co zrobić krok po kroku).
+                    5. Afirmacja (sukces, poczucie bezpieczeństwa)."""
                     user_prompt = f"Imię: {imie}\nProblem: {problem}\nRozwiązanie: {rozwiazanie}"
                     
-                    st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.5)
+                    st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
-                with st.spinner("2/2 Sztuczna Inteligencja maluje ilustrację terapeutyczną..."):
-                    img_prompt = f"Prosta, bardzo przyjazna i kolorowa ilustracja wektorowa do bajki dla dzieci. Główny motyw: dziecko, które uczy się radzić sobie z sytuacją: {problem}. Styl: bezpieczny, ciepły, uroczy, idealny dla dziecka w wieku {wiek} lat z autyzmem. ŻADNYCH NAPISÓW LUB LITER na obrazku."
+                with st.spinner("2/2 DALL-E maluje ilustrację przyczynowo-skutkową..."):
+                    # Wymuszamy na DALL-E obrazek typu "Diptych / Split screen" (Przed i Po)
+                    img_prompt = f"A diptych / split-screen comic style educational illustration for autistic children. LEFT PANEL: a {wiek}-year old child facing a difficult situation ({problem}), showing slight distress. RIGHT PANEL: the same child feeling safe and happy using a coping strategy ({rozwiazanie}). Style: very clear, simple, bright pastel colors, cute flat vector illustration, highly readable emotions, cause and effect concept. NO TEXT, NO WORDS, NO LETTERS."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
@@ -106,7 +125,7 @@ def modul_historyjki_spoleczne(api_key, is_pro):
             st.markdown("### 📚 Twoja Historyjka:")
             
             if 'hist_obraz' in st.session_state and st.session_state['hist_obraz']:
-                st.image(st.session_state['hist_obraz'], caption="Ilustracja do historyjki (Wygenerowana przez AI)", use_column_width=True)
+                st.image(st.session_state['hist_obraz'], caption="Ilustracja przyczynowo-skutkowa (Problem ➡️ Rozwiązanie)", use_column_width=True)
             
             st.markdown(f"<div class='story-box'>{st.session_state['hist_tekst']}</div>", unsafe_allow_html=True)
             
@@ -151,7 +170,6 @@ def modul_przedszkole(api_key):
     with c2:
         if 'przedszkole_wynik' in st.session_state:
             st.markdown("### 🎵 Twój Wierszyk:")
-            # Używamy st.code dla błyskawicznego kopiowania!
             st.code(st.session_state['przedszkole_wynik'], language="text")
             render_download_button("Rymowanka", st.session_state['przedszkole_wynik'])
 
@@ -166,12 +184,21 @@ def modul_kreator_tus(api_key):
         wiek = st.text_input("Wiek grupy (np. 6-7 lat):")
         czas = st.selectbox("Czas trwania zajęć:", ["30 minut", "45 minut", "60 minut"])
         cel = st.text_area("Główny problem do przepracowania:", placeholder="Np. Agresywne zachowania po przegranej w grze planszowej. Trudność z czekaniem na swoją kolej.")
+        stan_dziecka = st.text_area("Profil grupy / Stan dzieci (Opcjonalnie):", placeholder="Np. norma intelektualna, dzieci w spektrum autyzmu, dzieci z ADHD, mutyzm...")
         
-        if st.button("🧩 Generuj Scenariusz TUS"):
+        if st.button("🧩 Generuj Rozbudowany Scenariusz TUS"):
             if cel and wiek:
-                with st.spinner("Tworzenie konspektu TUS..."):
-                    sys_prompt = "Jesteś certyfikowanym trenerem TUS. Skonstruuj praktyczny scenariusz. Struktura: 1. Powitanie i Rundka, 2. Psychoedukacja, 3. Scenki / Odgrywanie Ról (podaj 2 scenki), 4. Relaksacja, 5. Pożegnanie. Zadbaj o zgodność z metodyką nauczania."
-                    user_prompt = f"Wiek: {wiek}\nCzas: {czas}\nProblem do przepracowania: {cel}"
+                with st.spinner("Tworzenie bardzo szczegółowego konspektu TUS..."):
+                    sys_prompt = """Jesteś certyfikowanym trenerem TUS. Skonstruuj BARDZO SZCZEGÓŁOWY i praktyczny scenariusz. 
+                    Struktura: 
+                    1. Powitanie i Rundka (opis ćwiczenia).
+                    2. Psychoedukacja (jak wytłumaczyć temat dzieciom).
+                    3. Scenki / Odgrywanie Ról (podaj 2 KONKRETNE scenki z propozycjami dialogów dla prowadzącego i dzieci).
+                    4. Relaksacja (dokładny przebieg).
+                    5. Pożegnanie. 
+                    Zadbaj o pełne dostosowanie proponowanych metod i słownictwa do profilu grupy (stanu dzieci)."""
+                    
+                    user_prompt = f"Wiek: {wiek}\nCzas: {czas}\nProblem do przepracowania: {cel}\nProfil grupy / Stan dzieci: {stan_dziecka if stan_dziecka else 'Norma intelektualna'}"
                     st.session_state['tus_wynik'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
             else: 
                 st.warning("Wypełnij wiek i cel zajęć.")
