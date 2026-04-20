@@ -148,27 +148,22 @@ def modul_przedszkole(api_key):
             
         if st.button("✍️ Wymyśl Wierszyk"):
             if api_key:
-                with st.spinner("Układanie idealnych rymów (AABB)..."):
-                    sys_prompt = """Jesteś mistrzem polskiej poezji dziecięcej. 
-                    ZASADY KRYTYCZNE (ZŁAMANIE ICH TO BŁĄD):
-                    1. Rymy MUSZĄ być dokładne i proste (np. sowa/głowa, kotki/płotki). Odrzuć rymy niedokładne.
-                    2. Układ rymów to ŚCISŁE AABB (wers 1 z 2, wers 3 z 4).
-                    3. RYTMIKA: Każdy wers musi mieć IDENTYCZNĄ liczbę sylab (np. równe 8 sylab), aby wierszyk łatwo się skandowało.
-                    
-                    Oto wzór idealnego rytmu i rymu (AABB, po 8 sylab):
-                    Wpadła gruszka do fartuszka,
-                    a za gruszką dwa jabłuszka,
-                    a śliweczka wpaść nie chciała,
-                    bo śliweczka nie dojrzała.
-                    
-                    Zwróć sam tekst rymowanki, bez twoich komentarzy."""
+                with st.spinner("Układanie logicznych rymów (AABB)..."):
+                    sys_prompt = """Jesteś autorem bardzo prostych rymowanek dla dzieci w wieku przedszkolnym.
+                    ZASADY KRYTYCZNE:
+                    1. Pisz tylko i wyłącznie w układzie AABB (wers 1 musi rymować się z 2, a wers 3 z 4).
+                    2. Używaj najprostszych, bardzo dokładnych rymów (np. krok/smok, woda/zgoda, dzieci/śmieci). 
+                    3. Zdania muszą być krótkie, łatwe do wypowiedzenia i rytmiczne.
+                    4. Odrzuć trudne słowa, dziwne metafory i tzw. rymy niedokładne. Skup się w 100% na tym, aby na końcu wersów były czyste rymy.
+                    Zwróć sam tekst rymowanki, bez komentarzy."""
                     
                     if "Dyplom" in typ:
-                        user_prompt = f"Napisz wesoły 2-zwrotkowy wierszyk na dyplom dla dziecka. Imię: {imie}. Cechy/Kontekst: {cechy}."
+                        user_prompt = f"Napisz prosty 2-zwrotkowy wierszyk na dyplom dla dziecka. Imię: {imie}. Cechy/Kontekst: {cechy}."
                     else:
                         user_prompt = f"Napisz rytmiczną rymowankę użytkową dla grupy przedszkolaków. Temat/Cel: {temat}. Dodaj w nawiasach instrukcje gestów (np. klaskanie) dla nauczyciela."
                     
-                    st.session_state['przedszkole_wynik'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.7)
+                    # Bardzo niska temperatura (0.2), żeby zablokować halucynacje i wymusić powtarzalną logikę!
+                    st.session_state['przedszkole_wynik'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.2)
             else:
                 st.warning("Brak klucza API.")
 
