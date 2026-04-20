@@ -32,26 +32,34 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
     except Exception as e:
         return f"Błąd komunikacji: {str(e)}"
 
-# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3 - NAPRAWIONE) ---
 def call_openai_image(api_key, image_prompt):
     if not api_key:
         return None, "Brak klucza API."
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {
-            "model": "gpt-image-1",
+            "model": "dall-e-3", # ZWRÓCONO POPRAWNĄ NAZWĘ DLA OFICJALNEGO API
             "prompt": image_prompt,
             "n": 1,
             "size": "1024x1024"
         }
         response = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=payload, timeout=120)
+        
         if response.ok:
-            image_url = response.json()["data"][0]["url"]
-            # Pobieramy obrazek jako ciąg bajtów (żeby móc go wstawić do Worda!)
-            img_response = requests.get(image_url)
-            if img_response.ok:
-                return io.BytesIO(img_response.content), None
-        return None, f"Błąd API Obrazów: {response.text}"
+            data = response.json()
+            # Zabezpieczenie przed brakiem 'url' w odpowiedzi
+            if "data" in data and len(data["data"]) > 0 and "url" in data["data"][0]:
+                image_url = data["data"][0]["url"]
+                img_response = requests.get(image_url)
+                if img_response.ok:
+                    return io.BytesIO(img_response.content), None
+                else:
+                    return None, "Błąd podczas pobierania wygenerowanego obrazka."
+            else:
+                return None, "Błąd krytyczny: OpenAI nie zwróciło linku do grafiki."
+        else:
+            return None, f"Błąd API Obrazów: {response.text}"
     except Exception as e:
         return None, f"Błąd komunikacji: {str(e)}"
 
