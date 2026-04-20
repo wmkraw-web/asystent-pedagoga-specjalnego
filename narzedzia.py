@@ -1,5 +1,7 @@
 import requests
 import io
+import streamlit as st
+
 try:
     import PyPDF2
 except ImportError:
@@ -69,6 +71,13 @@ def create_word_document(title, content_text, image_bytes=None):
     # Nagłówek
     h = doc.add_heading(title.upper(), level=1)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # Notka o zgodności z MEN
+    men_note = doc.add_paragraph("Dokument wygenerowany w oparciu o aktualne wytyczne MEN i podstawę programową.")
+    men_note.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    men_note.runs[0].font.size = Pt(9)
+    men_note.runs[0].font.italic = True
+    
     doc.add_paragraph("-" * 80)
     
     # Jeśli mamy wygenerowany obrazek, wstawiamy go na początku Worda
