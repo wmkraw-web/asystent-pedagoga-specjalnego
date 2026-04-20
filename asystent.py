@@ -45,7 +45,7 @@ with st.sidebar:
     code = st.text_input("Kod dostępu:", type="password")
     is_pro = code.upper() == "KAWA2024"
     if is_pro: 
-        st.success("Premium Aktywne (Moduły AI Odblokowane)")
+        st.success("Premium Aktywne (DALL-E Odblokowane)")
     else:
         st.warning("Podaj aktywny kod aby odblokować generowanie zdjęć i profesjonalne dokumenty.")
     
