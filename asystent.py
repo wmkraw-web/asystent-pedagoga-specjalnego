@@ -45,9 +45,9 @@ with st.sidebar:
     code = st.text_input("Kod dostępu:", type="password")
     is_pro = code.upper() == "KAWA2024"
     if is_pro: 
-        st.success("Premium Aktywne (DALL-E Odblokowane)")
+        st.success("Premium Aktywne (Moduły AI Odblokowane)")
     else:
-        st.warning("Podaj kod aby odblokować generowanie zdjęć i profesjonalne dokumenty.")
+        st.warning("Podaj aktywny kod aby odblokować generowanie zdjęć i profesjonalne dokumenty.")
     
     st.markdown("---")
     st.subheader("🛠️ Wybierz Narzędzie")
@@ -63,7 +63,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
         <a href="https://buycoffee.to/magiccolor" target="_blank" style="display: block; text-align: center;">
-            <img src="https://buycoffee.to/btn/buycoffeeto-btn-primary.svg" style="width: 100%; max-width: 250px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;" alt="Postaw mi kawę na buycoffee.to">
+            <img src="https://buycoffee.to/btn/buycoffeeto-btn-primary.svg" style="width: 100%; max-width: 220px; margin: 0 auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;" alt="Postaw mi kawę na buycoffee.to">
         </a>
     """, unsafe_allow_html=True)
 
