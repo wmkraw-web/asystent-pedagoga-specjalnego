@@ -45,11 +45,10 @@ def modul_asystent_dokumentow(api_key, is_pro):
             custom_template = st.text_area("📋 Wklej wzór / strukturę wymaganą w Twojej placówce (Opcjonalnie):", placeholder="np. 1. Funkcjonowanie społeczne, 2. Motoryka, 3. Zalecenia...", height=230)
             
         if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
-            if not is_pro: st.error("Wymagany Kod Premium (KAWA2024)")
+            if not is_pro: st.error("Wymagany aktywny Kod Premium. Odblokuj pełen dostęp wspierając projekt!")
             elif not s_name or not diagnosis: st.warning("Podaj imię i diagnozę.")
             else:
                 with st.spinner("Przetwarzam fachowym żargonem zgodnym z MEN i analizuję pliki..."):
-                    # Pobieranie tekstu z plików
                     full_text = ""
                     if files:
                         for f in files: full_text += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
@@ -93,7 +92,7 @@ def modul_historyjki_spoleczne(api_key, is_pro):
             if not api_key:
                 st.error("Brak klucza API OpenAI.")
             elif not is_pro:
-                st.error("Funkcja wymaga kodu Premium (KAWA2024).")
+                st.error("Funkcja wymaga aktywnego Kodu Premium. Odblokuj pełen dostęp wspierając projekt!")
             elif imie and problem:
                 with st.spinner("1/2 Pisanie rozbudowanej historyjki..."):
                     sys_prompt = f"""Jesteś certyfikowanym terapeutą behawioralnym. Napisz SZCZEGÓŁOWĄ i ROZBUDOWANĄ Historyjkę Społeczną dla {wiek}-letniego dziecka z autyzmem.
@@ -109,8 +108,8 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
                 with st.spinner("2/2 DALL-E maluje ilustrację przyczynowo-skutkową..."):
-                    # Wymuszamy na DALL-E obrazek typu "Diptych / Split screen" (Przed i Po)
-                    img_prompt = f"A diptych / split-screen comic style educational illustration for autistic children. LEFT PANEL: a {wiek}-year old child facing a difficult situation ({problem}), showing slight distress. RIGHT PANEL: the same child feeling safe and happy using a coping strategy ({rozwiazanie}). Style: very clear, simple, bright pastel colors, cute flat vector illustration, highly readable emotions, cause and effect concept. NO TEXT, NO WORDS, NO LETTERS."
+                    # Zmieniony, rygorystyczny prompt blokujący generowanie tekstu i wymuszający czytelność
+                    img_prompt = f"A completely wordless, highly visual diptych / split-screen educational illustration for autistic children. LEFT PANEL: a {wiek}-year old child experiencing ({problem}), showing slight distress. RIGHT PANEL: the same child feeling safe and happy using a coping strategy ({rozwiazanie}). Style: clear, simple, bright pastel colors, flat vector illustration, highly readable emotions, cause and effect concept. CRITICAL INSTRUCTION: Absolutely NO TEXT, NO WORDS, NO LETTERS, NO SPEECH BUBBLES, NO WRITING anywhere in the image. Only pure visual storytelling."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
@@ -151,12 +150,20 @@ def modul_przedszkole(api_key):
         if st.button("✍️ Wymyśl Wierszyk"):
             if api_key:
                 with st.spinner("Układanie idealnych rymów (AABB)..."):
-                    sys_prompt = """Jesteś najwybitniejszym polskim poetą dziecięcym (jak Jan Brzechwa). 
-                    ZASADY KRYTYCZNE, KTÓRYCH NIE MOŻESZ ZŁAMAĆ:
-                    1. Rymy muszą być DOKŁADNE, np. (kotki/płotki, lala/krasnala). Żadnych wymuszonych rymów.
-                    2. Układ rymów to AABB (wers pierwszy rymuje się z drugim, a trzeci z czwartym).
-                    3. Każdy wers musi mieć IDENTYCZNĄ liczbę sylab (np. dokładnie 8 sylab), aby wierszyk był bardzo rytmiczny i przypominał piosenkę.
-                    Zwróć sam tekst rymowanki."""
+                    # Nowy prompt wymuszający na AI perfekcyjną rytmikę na polskim przykładzie
+                    sys_prompt = """Jesteś mistrzem polskiej poezji dziecięcej. 
+                    ZASADY KRYTYCZNE (ZŁAMANIE ICH TO BŁĄD):
+                    1. Rymy MUSZĄ być dokładne i proste (np. sowa/głowa, kotki/płotki). Odrzuć rymy niedokładne.
+                    2. Układ rymów to ŚCISŁE AABB (wers 1 z 2, wers 3 z 4).
+                    3. RYTMIKA: Każdy wers musi mieć IDENTYCZNĄ liczbę sylab (np. równe 8 sylab), aby wierszyk łatwo się skandowało.
+                    
+                    Oto wzór idealnego rytmu i rymu (AABB, po 8 sylab):
+                    Wpadła gruszka do fartuszka,
+                    a za gruszką dwa jabłuszka,
+                    a śliweczka wpaść nie chciała,
+                    bo śliweczka nie dojrzała.
+                    
+                    Zwróć sam tekst rymowanki, bez twoich komentarzy."""
                     
                     if "Dyplom" in typ:
                         user_prompt = f"Napisz wesoły 2-zwrotkowy wierszyk na dyplom dla dziecka. Imię: {imie}. Cechy/Kontekst: {cechy}."
