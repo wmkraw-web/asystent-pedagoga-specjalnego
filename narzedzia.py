@@ -39,7 +39,7 @@ def call_openai_image(api_key, image_prompt):
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {
-            "model": "dall-e-3",
+            "model": "gpt-image-1",
             "prompt": image_prompt,
             "n": 1,
             "size": "1024x1024"
