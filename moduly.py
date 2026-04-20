@@ -107,9 +107,8 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
-                with st.spinner("2/2 DALL-E maluje ilustrację przyczynowo-skutkową..."):
-                    # Zmieniony, rygorystyczny prompt blokujący generowanie tekstu i wymuszający czytelność
-                    img_prompt = f"A completely wordless, highly visual diptych / split-screen educational illustration for autistic children. LEFT PANEL: a {wiek}-year old child experiencing ({problem}), showing slight distress. RIGHT PANEL: the same child feeling safe and happy using a coping strategy ({rozwiazanie}). Style: clear, simple, bright pastel colors, flat vector illustration, highly readable emotions, cause and effect concept. CRITICAL INSTRUCTION: Absolutely NO TEXT, NO WORDS, NO LETTERS, NO SPEECH BUBBLES, NO WRITING anywhere in the image. Only pure visual storytelling."
+                with st.spinner("2/2 Nowy model AI maluje ilustrację bez napisów..."):
+                    img_prompt = f"Two completely wordless scenes side-by-side. LEFT: a {wiek}-year old child experiencing ({problem}). RIGHT: the same child feeling safe using a coping strategy ({rozwiazanie}). Style: beautiful, simple children's book illustration, flat colors. CRITICAL: ABSOLUTELY NO TEXT, NO WORDS, NO SPEECH BUBBLES, NO LABELS. ONLY PURE ART."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
@@ -150,7 +149,6 @@ def modul_przedszkole(api_key):
         if st.button("✍️ Wymyśl Wierszyk"):
             if api_key:
                 with st.spinner("Układanie idealnych rymów (AABB)..."):
-                    # Nowy prompt wymuszający na AI perfekcyjną rytmikę na polskim przykładzie
                     sys_prompt = """Jesteś mistrzem polskiej poezji dziecięcej. 
                     ZASADY KRYTYCZNE (ZŁAMANIE ICH TO BŁĄD):
                     1. Rymy MUSZĄ być dokładne i proste (np. sowa/głowa, kotki/płotki). Odrzuć rymy niedokładne.
