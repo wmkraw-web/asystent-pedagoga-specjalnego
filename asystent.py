@@ -21,7 +21,7 @@ except ImportError:
     st.error("Brak biblioteki markdown. Dodaj 'markdown' do pliku requirements.txt")
 
 # --- KONFIGURACJA STRONY ---
-st.set_page_config(page_title="Asystent Pedagoga AI - EduBox", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="EduBox - Kombajn Nauczyciela", page_icon="🎓", layout="wide")
 
 # --- SPRAWDZENIE KLUCZA API ---
 try:
@@ -32,53 +32,73 @@ except:
 # --- STYLE CSS ---
 st.markdown("""
     <style>
-    .main { background-color: #f1f5f9; }
+    .main { background-color: #f8fafc; }
     .stButton>button { 
-        width: 100%; border-radius: 15px; height: 4em; font-weight: 800; font-size: 18px; 
+        width: 100%; border-radius: 10px; height: 3.5em; font-weight: bold; font-size: 16px; 
         background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; border: none;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: all 0.3s;
+        transition: all 0.3s;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
     .men-badge { 
         background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #2563eb; 
         color: #1e40af; padding: 12px 20px; border-radius: 10px; font-weight: bold; font-size: 14px; margin-bottom: 25px;
     }
     .a4-paper {
-        background-color: white; padding: 50px 70px; border-radius: 2px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.1); color: #1e293b;
+        background-color: white; padding: 50px 70px; border-radius: 5px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08); color: #1e293b;
         font-family: 'Times New Roman', Times, serif; font-size: 16px;
-        line-height: 1.6; min-height: 1000px; border: 1px solid #e2e8f0;
+        line-height: 1.6; min-height: 800px; border: 1px solid #e2e8f0;
         margin: 10px auto; max-width: 850px;
     }
     .a4-paper table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
     .a4-paper th, .a4-paper td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; }
     .a4-paper th { background-color: #f8fafc; font-weight: bold; }
-    
-    .demo-watermark {
-        background-color: #fff1f2;
-        border: 2px dashed #f43f5e;
-        color: #e11d48;
-        padding: 15px;
-        text-align: center;
-        border-radius: 10px;
-        font-weight: bold;
-        margin: 20px 0;
-    }
-    .blurred-text {
-        color: transparent;
-        text-shadow: 0 0 8px rgba(0,0,0,0.4);
-        user-select: none;
-    }
-    .status-ok { color: #059669; font-weight: bold; }
+    .chat-box { background-color: white; padding: 20px; border-radius: 10px; border-left: 5px solid #10b981; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNKCJA NAPRAWIAJĄCA TABELE AI ---
+
+# ==========================================
+# FUNKCJE POMOCNICZE (WSPÓLNE DLA MODUŁÓW)
+# ==========================================
+
+def call_openai_api(system_prompt, user_prompt, temperature=0.6):
+    if not OPENAI_API_KEY:
+        return "Błąd: Brak klucza API OpenAI."
+    try:
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            "temperature": temperature
+        }
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
+        if response.ok:
+            return response.json()["choices"][0]["message"]["content"]
+        else:
+            return f"Błąd API: {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Błąd krytyczny komunikacji z API: {str(e)}"
+
+def extract_text_from_file(uploaded_file):
+    text = ""
+    try:
+        if uploaded_file.name.endswith('.pdf'):
+            reader = PyPDF2.PdfReader(uploaded_file)
+            for page in reader.pages: text += page.extract_text() + "\n"
+        elif uploaded_file.name.endswith('.docx'):
+            doc = docx.Document(uploaded_file)
+            for para in doc.paragraphs: 
+                if para.text.strip(): text += para.text + "\n"
+        elif uploaded_file.name.endswith('.txt'):
+            text = uploaded_file.getvalue().decode("utf-8")
+    except Exception as e: st.error(f"Błąd odczytu pliku: {e}")
+    return text
+
 def fix_markdown_tables(text):
     text = text.replace("[TUTAJ ZACZYNA SIĘ TABELA DO WYPEŁNIENIA]", "").replace("[KONIEC TABELI]", "")
     lines = text.split('\n')
     fixed_lines = []
-    
     for i in range(len(lines)):
         fixed_lines.append(lines[i])
         if lines[i].strip().startswith('|') and lines[i].strip().endswith('|'):
@@ -90,279 +110,153 @@ def fix_markdown_tables(text):
                     fixed_lines.append(separator)
     return "\n".join(fixed_lines)
 
-# --- FUNKCJE POMOCNICZE ---
-def extract_text_from_file(uploaded_file):
-    text = ""
-    try:
-        if uploaded_file.name.endswith('.pdf'):
-            reader = PyPDF2.PdfReader(uploaded_file)
-            for page in reader.pages: text += page.extract_text() + "\n"
-        elif uploaded_file.name.endswith('.docx'):
-            doc = docx.Document(uploaded_file)
-            for para in doc.paragraphs: 
-                if para.text.strip(): text += para.text + "\n"
-            for table in doc.tables:
-                text += "\n[TABELA]\n"
-                for row in table.rows:
-                    row_data = [cell.text.replace('\n', ' ').strip() for cell in row.cells]
-                    text += "| " + " | ".join(row_data) + " |\n"
-        elif uploaded_file.name.endswith('.txt'):
-            text = uploaded_file.getvalue().decode("utf-8")
-    except Exception as e: st.error(f"Błąd odczytu pliku: {e}")
-    return text
-
-# --- GENERATOR PLIKU WORD (.DOCX) Z URZĘDOWYMI CZCIONKAMI ---
-def create_word_document(content_text, doc_type, student_name):
-    doc = docx.Document()
-    section = doc.sections[0]
-    section.left_margin = section.right_margin = Inches(1)
+# ==========================================
+# MODUŁ 1: ASYSTENT DOKUMENTÓW (STARA CZĘŚĆ)
+# ==========================================
+def modul_asystent_dokumentow(is_pro):
+    st.header("📝 Asystent Dokumentów (IPET, WOPFU)")
+    st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie i Język Ekspercki</div>', unsafe_allow_html=True)
     
-    style = doc.styles['Normal']
-    style.font.name = 'Times New Roman'
-    style.font.size = Pt(12)
+    MEN_RULES = {
+        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów...",
+        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania)": "Struktura: Indywidualne potrzeby, mocne strony, bariery...",
+        "Opinia o uczniu / Arkusz obserwacji": "Struktura: Opis funkcjonowania poznawczego, społecznego i emocjonalnego...",
+    }
     
-    for i in range(1, 4):
-        try:
-            heading_style = doc.styles[f'Heading {i}']
-            heading_style.font.name = 'Times New Roman'
-            heading_style.font.size = Pt(14)
-            heading_style.font.color.rgb = RGBColor(0, 0, 0)
-            heading_style.font.bold = True
-        except KeyError:
-            pass
-
-    h = doc.add_heading(doc_type.upper(), level=1)
-    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph(f"Uczeń: {student_name}").bold = True
-    doc.add_paragraph("-" * 80)
-    
-    in_table = False
-    table_obj = None
-    content_text = fix_markdown_tables(content_text)
-    
-    for line in content_text.split('\n'):
-        line = line.strip()
-        if not line:
-            in_table = False
-            doc.add_paragraph()
-            continue
+    tab1, tab2 = st.tabs(["📁 Dane", "📄 Podgląd"])
+    with tab1:
+        doc_type = st.selectbox("Rodzaj dokumentu:", list(MEN_RULES.keys()))
+        template_file = st.file_uploader("Opcjonalnie: Wgraj własny wzór (.DOCX):", type=['docx'])
+        c1, c2 = st.columns(2)
+        with c1:
+            s_name = st.text_input("Imię / Inicjały ucznia:")
+            diagnosis = st.text_area("Diagnoza główna:", height=100)
+        with c2:
+            strengths = st.text_area("💪 Mocne strony:", height=100)
+            weaknesses = st.text_area("🚧 Trudności:", height=100)
             
-        if line.startswith('|') and line.endswith('|'):
-            cells = [c.strip() for c in line.split('|')[1:-1]]
-            if all(c.replace('-', '').replace(':', '').strip() == '' for c in cells):
-                continue
-            
-            if not in_table:
-                in_table = True
-                table_obj = doc.add_table(rows=1, cols=len(cells))
-                table_obj.style = 'Table Grid'
-                row = table_obj.rows[0]
-                for i, val in enumerate(cells):
-                    p = row.cells[i].paragraphs[0]
-                    _add_bold_parts(p, val)
-                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if st.button("⚙️ GENERUJ DOKUMENT"):
+            if not is_pro: st.error("Wymagany Kod Premium (KAWA2024)")
+            elif not s_name or not diagnosis: st.warning("Podaj imię i diagnozę.")
             else:
-                row_cells = table_obj.add_row().cells
-                for i, val in enumerate(cells):
-                    if i < len(row_cells):
-                        _add_bold_parts(row_cells[i].paragraphs[0], val)
-            continue
-        
-        in_table = False
-        if line.startswith('### '): doc.add_heading(line[4:], level=3)
-        elif line.startswith('## '): doc.add_heading(line[3:], level=2)
-        elif line.startswith('# '): doc.add_heading(line[2:], level=1)
-        elif line.startswith('- ') or line.startswith('* '):
-            p = doc.add_paragraph(style='List Bullet')
-            _add_bold_parts(p, line[2:])
+                with st.spinner("Przetwarzam..."):
+                    sys_prompt = f"Jesteś wybitnym diagnostą. Napisz {doc_type}. Używaj specjalistycznego żargonu pedagogicznego."
+                    user_prompt = f"Imię: {s_name}\nDiagnoza: {diagnosis}\nMocne: {strengths}\nSłabe: {weaknesses}"
+                    result = call_openai_api(sys_prompt, user_prompt, temperature=0.5)
+                    st.session_state['gen_doc'] = fix_markdown_tables(result)
+                    st.success("Gotowe! Przejdź do zakładki Podgląd.")
+                    
+    with tab2:
+        if 'gen_doc' in st.session_state:
+            html = markdown.markdown(st.session_state['gen_doc'], extensions=['tables'])
+            st.markdown(f'<div class="a4-paper">{html}</div>', unsafe_allow_html=True)
         else:
-            p = doc.add_paragraph()
-            _add_bold_parts(p, line)
+            st.info("Wygeneruj dokument w pierwszej zakładce.")
+
+# ==========================================
+# MODUŁ 2: TŁUMACZ - TRUDNY RODZIC (NOWOŚĆ!)
+# ==========================================
+def modul_trudny_rodzic():
+    st.header("🤝 Tłumacz: Asystent Komunikacji z Rodzicem")
+    st.markdown("Ten moduł zamienia Twoje emocjonalne myśli na uprzejmy, asertywny i profesjonalny komunikat gotowy do wysłania (np. przez e-dziennik Librus/Vulcan).")
+    
+    st.info("💡 **Przykład:** Zamiast *'Pani syn znowu kopie inne dzieci, zróbcie coś z tym!'*, AI napisze profesjonalną notatkę o trudnościach w samoregulacji z prośbą o współpracę.")
+    
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        ton_wypowiedzi = st.selectbox("Wybierz cel i ton wiadomości:", [
+            "Uprzejma prośba o interwencję (np. zachowanie)",
+            "Stanowcze przypomnienie o zasadach (np. przyprowadzanie chorych dzieci)",
+            "Zawiadomienie o problemach w nauce (motywacyjne)",
+            "Zaproszenie na trudną rozmowę (dyplomatyczne)"
+        ])
+        
+        surowy_tekst = st.text_area("Co chcesz przekazać rodzicowi? (Napisz swoimi słowami, nawet w nerwach):", height=200, 
+                                    placeholder="Np. Pani syn znowu przyszedł chory. Ma gila do pasa i kaszle na całą grupę. Zabierzcie go, bo pozaraża resztę!")
+        
+        if st.button("✨ Przetłumacz na język dyplomacji"):
+            if surowy_tekst:
+                with st.spinner("Trwa redagowanie dyplomatycznej wiadomości..."):
+                    sys_prompt = f"""Jesteś doświadczonym, empatycznym, ale bardzo asertywnym pedagogiem. 
+                    Twoim zadaniem jest 'przetłumaczenie' pełnej emocji wiadomości nauczyciela na profesjonalny, uprzejmy komunikat do rodzica (np. na e-dziennik).
+                    
+                    CEL WIADOMOŚCI: {ton_wypowiedzi}
+                    
+                    ZASADY:
+                    1. Bądź uprzejmy, ale stanowczy (tzw. metoda kanapki: pozytyw - problem - pozytyw/rozwiązanie).
+                    2. Unikaj oskarżycielskiego tonu. Używaj języka korzyści (troska o dziecko i grupę).
+                    3. Zwracaj się formalnie ("Szanowny Panie / Szanowna Pani").
+                    4. Zaproponuj współpracę na linii dom-szkoła.
+                    5. Zwróć sam gotowy tekst do skopiowania, bez żadnych wstępów."""
+                    
+                    gotowy_tekst = call_openai_api(sys_prompt, surowy_tekst, temperature=0.7)
+                    st.session_state['tlumacz_wynik'] = gotowy_tekst
+            else:
+                st.warning("Wpisz najpierw swoją myśl!")
+
+    with c2:
+        if 'tlumacz_wynik' in st.session_state:
+            st.markdown("### 📩 Gotowa wiadomość (do skopiowania):")
+            st.markdown(f"<div class='chat-box'>{st.session_state['tlumacz_wynik']}</div>", unsafe_allow_html=True)
             
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
+            # Przycisk do szybkiego kopiowania (tylko jako wizualny element w st, realne kopiowanie uzytkownik robi myszka)
+            st.caption("Zaznacz tekst powyżej i skopiuj (Ctrl+C), aby wkleić do e-dziennika.")
 
-def _add_bold_parts(paragraph, text):
-    parts = text.split('**')
-    for i, part in enumerate(parts):
-        run = paragraph.add_run(part)
-        if i % 2 != 0: run.bold = True
 
-# --- BAZA WIEDZY MEN I WZÓR POKAZOWY ---
-MEN_RULES = {
-    "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów, formy pomocy PP, współpraca z rodzicami oraz ocena efektywności.",
-    "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura: Indywidualne potrzeby, mocne strony, przyczyny niepowodzeń, bariery środowiskowe oraz wnioski do pracy.",
-    "Informacja o gotowości dziecka do podjęcia nauki w szkole podstawowej": "Struktura: Stopień opanowania wymagań programowych, mocne strony i uzdolnienia, trudności, obszary wymagające wsparcia oraz wnioski o gotowości.",
-    "Opinia o uczniu / Arkusz obserwacji": "Struktura: Opis funkcjonowania poznawczego, społecznego i emocjonalnego oraz zalecenia.",
-    "Własny Dokument / Inny (Zgodnie z szablonem placówki)": "Wygeneruj dokument ściśle według szablonu podanego przez użytkownika."
-}
+# ==========================================
+# POZOSTAŁE MODUŁY (W BUDOWIE)
+# ==========================================
+def modul_w_budowie(tytul, opis):
+    st.header(f"🚧 {tytul}")
+    st.info(opis)
+    st.image("https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=2022&auto=format&fit=crop", caption="Moduł w fazie projektowania...", use_column_width=True)
 
-DEMO_DOCUMENT = """
-# INDYWIDUALNY PROGRAM EDUKACYJNO-TERAPEUTYCZNY (IPET)
-**Uczeń:** Jan K. (Przykład)
-**Klasa:** 2a
 
-## 1. Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia (WOPFU) - Podsumowanie
-W oparciu o zgromadzoną dokumentację diagnostyczną oraz obserwację bezpośrednią, uczeń wykazuje ponadprzeciętne predyspozycje w sferze operacji logiczno-matematycznych. Główne obszary deficytowe koncentrują się wokół zaburzeń integracji sensorycznej oraz obniżonych kompetencji w zakresie inicjowania i podtrzymywania relacji rówieśniczych.
-
-## 2. Zakres i sposób dostosowania wymagań edukacyjnych
-- Wydłużenie limitu czasu podczas weryfikacji wiedzy o 50%.
-- Stosowanie zasady gradacji trudności oraz dzielenie złożonych komunikatów na etapy.
-- Zabezpieczenie optymalnego, pozbawionego nadmiernych dystraktorów środowiska pracy.
-- <span class='blurred-text'>Dostosowanie formy sprawdzania wiedzy do możliwości psychofizycznych ucznia. Zamiast weryfikacji werbalnej, rekomenduje się stosowanie testów wyboru.</span>
-
-## 3. Zintegrowane działania nauczycieli i specjalistów
-- Objęcie ucznia cyklicznym wsparciem w ramach Treningu Umiejętności Społecznych (TUS).
-- <span class='blurred-text'>Permanentna ewaluacja samopoczucia przez pedagoga szkolnego oraz modyfikacja czynników środowiskowych w celu minimalizacji zachowań niepożądanych.</span>
-
-<div class='demo-watermark'>
-    🔒 DALSZA CZĘŚĆ DOKUMENTU ZABLOKOWANA<br/>
-    <span style='font-size:12px; font-weight:normal;'>To jest tylko statyczny wzór. Aby Sztuczna Inteligencja przeanalizowała TWOJE dane jako PROFESJONALNY DIAGNOSTA, odblokuj aplikację Kodem Premium!</span>
-</div>
-"""
-
-# --- INTERFEJS ---
-st.title("🎓 Asystent Pedagoga PRO v2")
-st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie i Język Ekspercki</div>', unsafe_allow_html=True)
-
+# ==========================================
+# GŁÓWNA STRUKTURA (MENU BOCZNE)
+# ==========================================
 with st.sidebar:
+    st.title("🎓 EduBox")
+    st.caption("Kombajn Nauczyciela v3.0")
+    
     st.header("🔑 Autoryzacja")
     code = st.text_input("Kod dostępu:", type="password")
     is_pro = code.upper() == "KAWA2024"
-    if is_pro: st.success("Odblokowano funkcje PREMIUM")
-    else: st.warning("Tryb demonstracyjny (Wymagany Kod)")
-    st.markdown("---")
-    st.info("RODO: Używaj inicjałów ucznia!")
-    st.markdown("[☕ Postaw Kawę](https://buycoffee.to/magiccolor)")
-
-tab1, tab2 = st.tabs(["📁 1. Dane i Szablony", "📝 2. Podgląd i Wydruk"])
-
-with tab1:
-    st.subheader("1. Wybierz dokument lub wgraj własny szablon")
-    st.info("💡 Chcesz, żeby AI wypełniło tabelkę Twojej szkoły? Wgraj wzór w formacie **.DOCX**!")
-    
-    c_doc1, c_doc2 = st.columns(2)
-    with c_doc1:
-        doc_type = st.selectbox("Wybierz rodzaj dokumentu:", list(MEN_RULES.keys()))
-    with c_doc2:
-        template_file = st.file_uploader("Opcjonalnie: Wgraj własny wzór (.DOCX):", type=['pdf', 'docx'])
+    if is_pro: st.success("Premium Aktywne")
     
     st.markdown("---")
-    st.subheader("2. Dane ucznia i diagnoza")
-    c1, c2 = st.columns(2)
-    with c1:
-        s_name = st.text_input("Imię / Inicjały ucznia:", placeholder="np. Jan K.")
-        s_info = st.text_input("Klasa / Wiek:", placeholder="np. Klasa 2a")
-        diagnosis = st.text_area("❗ Główna diagnoza / opis problemu:", placeholder="Np. Spektrum autyzmu, afazja, ADHD...", height=100)
-    with c2:
-        files = st.file_uploader("Wgraj orzeczenia PPP (DANE):", type=['pdf', 'docx'], accept_multiple_files=True)
-
+    st.subheader("🛠️ Wybierz Narzędzie")
+    
+    narzedzie = st.radio("Menu Główne:", [
+        "📑 Asystent Dokumentów (IPET)",
+        "🤝 Komunikacja z Rodzicem",
+        "🧩 Historyjki Społeczne (Autyzm)",
+        "🎭 Kreator TUS",
+        "🎈 Przedszkole (Rymowanki)",
+        "🧪 Projekty Badawcze"
+    ])
+    
     st.markdown("---")
-    st.subheader("3. Własne uwagi i cechy ucznia")
-    c3, c4 = st.columns(2)
-    with c3:
-        strengths = st.text_area("💪 Mocne strony / Zasoby:", placeholder="W czym uczeń jest dobry?", height=120)
-    with c4:
-        weaknesses = st.text_area("🚧 Trudności / Bariery:", placeholder="Z czym ma największy problem?", height=120)
+    st.markdown("[☕ Postaw Kawę Twórcy](https://buycoffee.to/magiccolor)")
 
-    if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
-        if not is_pro:
-            st.session_state['generated_doc'] = "DEMO_MODE"
-            st.session_state['s_name'] = "Wzór Dokumentu"
-            st.session_state['doc_type'] = "IPET (Wzór)"
-            st.error("🔒 Odmowa dostępu: Aby wygenerować pełny dokument używając silnika profesjonalnego redagowania, wesprzyj projekt wirtualną kawą i wpisz Kod Premium w panelu po lewej stronie!")
-            st.info("👉 Przejdź do zakładki 'Podgląd i Wydruk', aby zobaczyć PRZYKŁADOWY WZÓR dokumentu.")
-        elif not OPENAI_API_KEY:
-            st.error("⚠️ Brak skonfigurowanego klucza OpenAI w Streamlit Secrets!")
-        elif not s_name or not diagnosis:
-            st.error("⚠️ Podaj przynajmniej imię i diagnozę główną ucznia!")
-        else:
-            with st.spinner("🚀 AI diagnozuje i przeredagowuje dokumenty fachowym językiem... To zajmie ok. 15-20 sekund."):
-                template_text = extract_text_from_file(template_file) if template_file else ""
-                
-                data_text = ""
-                if files:
-                    for f in files: data_text += f"\n--- PLIK DANYCH: {f.name} ---\n" + extract_text_from_file(f)
-                
-                if template_text:
-                    template_instruction = f"Użytkownik wgrał WŁASNY SZABLON dokumentu. Twoim absolutnym priorytetem jest zastosowanie jego układu oraz wszystkich nagłówków i tabel, które się w nim znajdują:\n{template_text}"
-                else:
-                    template_instruction = f"WYMAGANIA STRUKTURALNE DLA TEGO DOKUMENTU: {MEN_RULES[doc_type]}"
 
-                # --- NOWY, "ULTRA-PROFESJONALNY" PROMPT DLA AI ---
-                sys_msg = f"""Jesteś wybitnym diagnostą, ekspertem pedagogiki specjalnej i psychologii z 25-letnim stażem, pracującym w polskim systemie oświaty. 
-                TWOIM ZADANIEM JEST STWORZENIE DOKUMENTU: {doc_type}.
-                
-                ZASADY KRYTYCZNE (ZŁAMANIE ICH TO BŁĄD KRYTYCZNY):
-                1. {template_instruction}
-                
-                2. ABSOLUTNY ZAKAZ KOPIOWANIA! Surowe notatki od nauczyciela lub treść orzeczeń traktujesz tylko jako materiał źródłowy. ZABRANIAM CI przepisywania ich słowo w słowo. Twoim zadaniem jest GŁĘBOKA SYNTEZA i PRZEREDAGOWANIE tych informacji w profesjonalny, analityczny dokument.
-                
-                3. STYL I ŻARGON (NAJWAŻNIEJSZE):
-                   Używaj wyłącznie wysoce specjalistycznego żargonu pedagogiczno-psychologicznego. Dokument ma brzmieć poważnie i oficjalnie. 
-                   PRZYKŁADY TRANSFORMACJI (Wzoruj się na tym!):
-                   - ŹLE: "Jaś ciągle biega po klasie, nie słucha poleceń i bije inne dzieci. Bardzo lubi pociągi."
-                   - DOBRZE: "Obserwuje się znaczną nadpobudliwość psychoruchową z towarzyszącymi deficytami w sferze koncentracji uwagi dowolonej. Uczeń przejawia trudności w samoregulacji emocjonalnej oraz dezadaptacyjne zachowania w obszarze kompetencji społecznych. W sferze motywacyjnej dominują zawężone fiksacje wokół motywów transportowych."
-                   - ŹLE: "Trzeba mu dawać więcej czasu na sprawdzianach."
-                   - DOBRZE: "Rekomenduje się elastyczne dostosowanie ram czasowych podczas weryfikacji wiedzy, uwzględniające indywidualne tempo pracy oraz spowolniony proces przetwarzania informacji."
-                
-                4. SŁOWNIK POMOCNICZY: Używaj słów takich jak: percepcja, motoryka mała/duża, koordynacja wzrokowo-ruchowa, analiza i synteza, deficyty, stymulacja polisensoryczna, dostosowanie wymagań edukacyjnych, samoregulacja, funkcje poznawcze.
-                
-                5. Jeśli w układzie (szablonie) jest JAKAKOLWIEK TABELA, MUSISZ ją bezwzględnie odtworzyć w formacie Markdown (separator |---|).
-                6. Zwróć tylko czysty dokument w Markdown. Żadnych wstępów ani komentarzy pobocznych."""
+# ==========================================
+# ROUTING (WYŚWIETLANIE WYBRANEGO NARZĘDZIA)
+# ==========================================
+if narzedzie == "📑 Asystent Dokumentów (IPET)":
+    modul_asystent_dokumentow(is_pro)
+    
+elif narzedzie == "🤝 Komunikacja z Rodzicem":
+    modul_trudny_rodzic()
+    
+elif narzedzie == "🧩 Historyjki Społeczne (Autyzm)":
+    modul_w_budowie("Generator Historyjek Społecznych", "Wkrótce: Tworzenie terapeutycznych opowiadań krok po kroku dla dzieci w spektrum autyzmu.")
+    
+elif narzedzie == "🎭 Kreator TUS":
+    modul_w_budowie("Kreator Zajęć TUS", "Wkrótce: Automatyczne generowanie scenariuszy Treningu Umiejętności Społecznych.")
+    
+elif narzedzie == "🎈 Przedszkole (Rymowanki)":
+    modul_w_budowie("Asystent Przedszkolny", "Wkrótce: Wierszyki na dyplomy, rymowanki wyciszające i scenariusze dzienne zgodne z podstawą programową.")
 
-                usr_msg = f"""DANE UCZNIA: {s_name}, {s_info}.
-                DIAGNOZA GŁÓWNA: {diagnosis}.
-                ZASOBY (Mocne strony, wpisane potocznie - PRZEREDAGUJ NA ŻARGON): {strengths}.
-                BARIERY (Trudności, wpisane potocznie - PRZEREDAGUJ NA ŻARGON): {weaknesses}.
-                SUROWE ORZECZENIA DO ZSYNTEZOWANIA: {data_text[:12000]}"""
-
-                try:
-                    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-                    payload = {
-                        "model": "gpt-4o-mini",
-                        "messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": usr_msg}],
-                        "temperature": 0.55 # Wyższa temperatura = Większa wolność w doborze bogatego słownictwa, AI przestaje być skanerem-kopiarką
-                    }
-                    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
-                    
-                    if response.ok:
-                        raw_doc = response.json()["choices"][0]["message"]["content"]
-                        st.session_state['generated_doc'] = fix_markdown_tables(raw_doc)
-                        st.session_state['s_name'] = s_name
-                        st.session_state['doc_type'] = doc_type
-                        st.success("✅ Gotowe! Sprawdź zakładkę 'Podgląd i Wydruk'.")
-                    else:
-                        st.error("Błąd API OpenAI. Sprawdź środki na koncie.")
-                except Exception as e:
-                    st.error(f"Błąd krytyczny: {str(e)}")
-
-with tab2:
-    if 'generated_doc' in st.session_state:
-        doc = st.session_state['generated_doc']
-        
-        if doc == "DEMO_MODE":
-            st.warning("👀 Tryb Pokazowy. Poniżej znajduje się przykładowy dokument. Odblokuj pełen dostęp kodem KAWA2024, aby pobrać go jako gotowy plik z ustawionymi czcionkami!")
-            st.markdown("---")
-            st.markdown(f"<div class='a4-paper'>{DEMO_DOCUMENT}</div>", unsafe_allow_html=True)
-            
-        else:
-            st.subheader("📥 Eksport i Drukowanie")
-            c_dl1, c_dl2 = st.columns(2)
-            with c_dl1:
-                word_buf = create_word_document(doc, st.session_state.get('doc_type', 'Dokument'), st.session_state['s_name'])
-                st.download_button("📁 POBIERZ PLIK WORD (.DOCX)", word_buf, file_name=f"dokument_{st.session_state['s_name']}.docx", type="primary", use_container_width=True)
-            with c_dl2:
-                st.info("💡 Plik Word używa teraz wyłącznie czcionki Times New Roman (Rozmiar 12 dla tekstu, 14 dla nagłówków).")
-
-            st.markdown("---")
-            st.markdown("### 🖥️ Podgląd arkusza A4")
-            html = markdown.markdown(doc, extensions=['tables'])
-            st.markdown(f'<div class="a4-paper">{html}</div>', unsafe_allow_html=True)
-    else:
-        st.info("Wypełnij dane w zakładce obok i kliknij 'Generuj'.")
-
-st.markdown("---")
-st.caption("EduBox AI © 2026 | Płatny model API OpenAI (GPT-4o-mini)")
+elif narzedzie == "🧪 Projekty Badawcze":
+    modul_w_budowie("Metoda Projektów", "Wkrótce: Generowanie pytań badawczych i eksperymentów dla przedszkolaków.")
