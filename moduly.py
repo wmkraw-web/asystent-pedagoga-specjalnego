@@ -107,8 +107,9 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
-                with st.spinner("2/2 Nowy model AI maluje ilustrację bez napisów..."):
-                    img_prompt = f"Two completely wordless scenes side-by-side. LEFT: a {wiek}-year old child experiencing ({problem}). RIGHT: the same child feeling safe using a coping strategy ({rozwiazanie}). Style: beautiful, simple children's book illustration, flat colors. CRITICAL: ABSOLUTELY NO TEXT, NO WORDS, NO SPEECH BUBBLES, NO LABELS. ONLY PURE ART."
+                with st.spinner("2/2 DALL-E maluje bezpieczną ilustrację (bez dziwnych artefaktów)..."):
+                    # NAPRAWIONY PROMPT GRAFICZNY: Blokada ożywiania przedmiotów (np. twarzy w odkurzaczu) i restrykcyjny zakaz tekstu.
+                    img_prompt = f"A diptych (two-panel illustration) for a children's book. LEFT PANEL: A {wiek}-year-old child looks anxious because of: {problem}. IMPORTANT RULE: The object causing fear MUST look like a normal, everyday inanimate item (e.g. a normal vacuum cleaner with NO faces, NO eyes, and NO living things inside it). RIGHT PANEL: The same child is feeling safe and calm by using this strategy: {rozwiazanie}. STYLE: cute, soft pastel colors, simple flat vector art. CRITICAL: ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO SPEECH BUBBLES."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
@@ -162,7 +163,6 @@ def modul_przedszkole(api_key):
                     else:
                         user_prompt = f"Napisz rytmiczną rymowankę użytkową dla grupy przedszkolaków. Temat/Cel: {temat}. Dodaj w nawiasach instrukcje gestów (np. klaskanie) dla nauczyciela."
                     
-                    # Bardzo niska temperatura (0.2), żeby zablokować halucynacje i wymusić powtarzalną logikę!
                     st.session_state['przedszkole_wynik'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.2)
             else:
                 st.warning("Brak klucza API.")
