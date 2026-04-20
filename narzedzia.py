@@ -2,7 +2,7 @@ import requests
 import io
 import streamlit as st
 import json
-import base64  # Dodana nowa biblioteka do odkodowywania obrazków!
+import base64
 
 try:
     import PyPDF2
@@ -34,18 +34,19 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
     except Exception as e:
         return f"Błąd komunikacji: {str(e)}"
 
-# --- FUNKCJA: GENEROWANIE OBRAZU (SZYBKI MODEL GPT-IMAGE-1-MINI) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (NAPRAWIONE - OFICJALNY MODEL DALL-E 3) ---
 def call_openai_image(api_key, image_prompt):
     if not api_key:
         return None, "Brak klucza API."
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        # Wracamy do oficjalnej, jedynej słusznej nazwy modelu dla API OpenAI (DALL-E 3)
+        # Usunęliśmy response_format, który powodował konflikt 400 Bad Request
         payload = {
-            "model": "gpt-image-1-mini",
+            "model": "dall-e-3",
             "prompt": image_prompt,
             "n": 1,
-            "size": "1024x1024",
-            "response_format": "b64_json" # Wymuszamy najszybszy format kodowania
+            "size": "1024x1024"
         }
         response = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=payload, timeout=120)
         
@@ -54,19 +55,20 @@ def call_openai_image(api_key, image_prompt):
             if "data" in data and len(data["data"]) > 0:
                 img_data = data["data"][0]
                 
-                # SCENARIUSZ 1: Nowy model wysyła obraz w kodzie (b64_json) - NAJSZYBSZE
-                if "b64_json" in img_data:
-                    image_bytes = base64.b64decode(img_data["b64_json"])
-                    return io.BytesIO(image_bytes), None
-                    
-                # SCENARIUSZ 2: Model wysyła klasyczny link (url)
-                elif "url" in img_data:
+                # Odbiór klasyczny - Link URL
+                if "url" in img_data:
                     image_url = img_data["url"]
                     img_response = requests.get(image_url)
                     if img_response.ok:
                         return io.BytesIO(img_response.content), None
                     else:
                         return None, "Błąd podczas pobierania wygenerowanego obrazka z linku."
+                
+                # Zabezpieczenie awaryjne - Odbiór w Base64
+                elif "b64_json" in img_data:
+                    image_bytes = base64.b64decode(img_data["b64_json"])
+                    return io.BytesIO(image_bytes), None
+                    
                 else:
                     return None, f"Błąd: Nieznany format odpowiedzi. Surowe dane: {json.dumps(data)}"
             else:
