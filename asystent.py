@@ -61,7 +61,11 @@ with st.sidebar:
     ])
     
     st.markdown("---")
-    st.markdown("[☕ Postaw Kawę Twórcy](https://buycoffee.to/magiccolor)")
+    st.markdown("""
+        <a href="https://buycoffee.to/magiccolor" target="_blank" style="display: block; text-align: center;">
+            <img src="https://buycoffee.to/btn/buycoffeeto-btn-primary.svg" style="width: 100%; max-width: 250px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;" alt="Postaw mi kawę na buycoffee.to">
+        </a>
+    """, unsafe_allow_html=True)
 
 # --- ROUTING (Przełączanie modułów z pliku moduly.py) ---
 if narzedzie == "📑 Asystent Dokumentów (IPET)":
