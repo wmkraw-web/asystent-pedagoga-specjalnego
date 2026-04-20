@@ -32,14 +32,15 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
     except Exception as e:
         return f"Błąd komunikacji: {str(e)}"
 
-# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3 - NAPRAWIONE) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (NOWY MODEL) ---
 def call_openai_image(api_key, image_prompt):
     if not api_key:
         return None, "Brak klucza API."
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {
-            "model": "dall-e-3", # ZWRÓCONO POPRAWNĄ NAZWĘ DLA OFICJALNEGO API
+            # ZMIANA NA NOWY, SZYBKI I TANI MODEL ZGODNIE Z KOMUNIKATEM!
+            "model": "gpt-image-1-mini", 
             "prompt": image_prompt,
             "n": 1,
             "size": "1024x1024"
@@ -48,7 +49,6 @@ def call_openai_image(api_key, image_prompt):
         
         if response.ok:
             data = response.json()
-            # Zabezpieczenie przed brakiem 'url' w odpowiedzi
             if "data" in data and len(data["data"]) > 0 and "url" in data["data"][0]:
                 image_url = data["data"][0]["url"]
                 img_response = requests.get(image_url)
