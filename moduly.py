@@ -108,8 +108,8 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
                 with st.spinner("2/2 Nowy model AI maluje ilustrację..."):
-                    # CAŁKOWICIE NOWY PROMPT: Blokada słów takich jak "sytuacja", "strategia", czy "panel", które AI próbowało napisać jako tytuły.
-                    img_prompt = f"A completely wordless picture book illustration divided visually in half. First half: A {wiek}-year-old child reacting to {problem}. Any scary object must look completely normal and inanimate (no faces, no eyes). Second half: The same child doing {rozwiazanie}. Style: flat vector, minimalist pastel colors, cute aesthetic. ABSOLUTELY NO BANNERS, NO TITLES, NO LABELS, NO SPEECH BUBBLES, NO TEXT."
+                    # CAŁKOWICIE NOWY PROMPT: Wymuszenie fizycznej logiki (dziecko obok przedmiotu, na podłodze)
+                    img_prompt = f"A completely wordless picture book illustration divided visually into left and right sides. LEFT SIDE: A {wiek}-year-old child is standing safely on the floor, keeping a distance from ({problem}). The child is just looking at the object. The object is a normal, lifeless household item. RIGHT SIDE: The same child is calm and doing: {rozwiazanie}. Style: cute children's book, flat vector, pastel colors. CRITICAL: NO TEXT, NO WORDS, NO LETTERS, NO BANNERS anywhere."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
