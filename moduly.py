@@ -108,8 +108,8 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
                 with st.spinner("2/2 Nowy model AI maluje ilustrację..."):
-                    # ZŁAGODZONY PROMPT: Omijamy cenzurę OpenAI usuwając słowa "fear" (strach) i "anxious" (zaniepokojony)
-                    img_prompt = f"A diptych (two-panel illustration) for a children's book. LEFT PANEL: A {wiek}-year-old child is facing a new challenging situation: {problem}. IMPORTANT RULE: The object in the scene MUST look like a normal, everyday inanimate item (e.g. a normal vacuum cleaner with NO faces, NO eyes, and NO living things inside it). RIGHT PANEL: The same child is feeling safe and calm by using this strategy: {rozwiazanie}. STYLE: cute, soft pastel colors, simple flat vector art. CRITICAL: ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO SPEECH BUBBLES."
+                    # CAŁKOWICIE NOWY PROMPT: Blokada słów takich jak "sytuacja", "strategia", czy "panel", które AI próbowało napisać jako tytuły.
+                    img_prompt = f"A completely wordless picture book illustration divided visually in half. First half: A {wiek}-year-old child reacting to {problem}. Any scary object must look completely normal and inanimate (no faces, no eyes). Second half: The same child doing {rozwiazanie}. Style: flat vector, minimalist pastel colors, cute aesthetic. ABSOLUTELY NO BANNERS, NO TITLES, NO LABELS, NO SPEECH BUBBLES, NO TEXT."
                     img_bytes, err = call_openai_image(api_key, img_prompt)
                     
                     if img_bytes:
@@ -124,7 +124,7 @@ def modul_historyjki_spoleczne(api_key, is_pro):
             st.markdown("### 📚 Twoja Historyjka:")
             
             if 'hist_obraz' in st.session_state and st.session_state['hist_obraz']:
-                st.image(st.session_state['hist_obraz'], caption="Ilustracja przyczynowo-skutkowa (Problem ➡️ Rozwiązanie)", use_column_width=True)
+                st.image(st.session_state['hist_obraz'], caption="Ilustracja wizualna (Problem ➡️ Rozwiązanie)", use_column_width=True)
             
             st.markdown(f"<div class='story-box'>{st.session_state['hist_tekst']}</div>", unsafe_allow_html=True)
             
