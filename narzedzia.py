@@ -1,6 +1,7 @@
 import requests
 import io
 import streamlit as st
+import json
 
 try:
     import PyPDF2
@@ -27,9 +28,13 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=120)
         if response.ok:
             return response.json()["choices"][0]["message"]["content"]
-# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3 - NAPRAWIONE) ---
+        else:
+            return f"Błąd API: {response.text}"
+    except Exception as e:
+        return f"Błąd komunikacji: {str(e)}"
+
+# --- FUNKCJA: GENEROWANIE OBRAZU (DALL-E 3) ---
 def call_openai_image(api_key, image_prompt):
-    import json # Wymuszenie ładowania biblioteki JSON do testów
     if not api_key:
         return None, "Brak klucza API."
     try:
