@@ -34,16 +34,15 @@ def call_openai_text(api_key, system_prompt, user_prompt, temperature=0.6):
     except Exception as e:
         return f"Błąd komunikacji: {str(e)}"
 
-# --- FUNKCJA: GENEROWANIE OBRAZU (NAPRAWIONE - OFICJALNY MODEL DALL-E 3) ---
+# --- FUNKCJA: GENEROWANIE OBRAZU (NOWY MODEL GPT-IMAGE-1) ---
 def call_openai_image(api_key, image_prompt):
     if not api_key:
         return None, "Brak klucza API."
     try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        # Wracamy do oficjalnej, jedynej słusznej nazwy modelu dla API OpenAI (DALL-E 3)
-        # Usunęliśmy response_format, który powodował konflikt 400 Bad Request
+        # PRZEJŚCIE NA NOWY MODEL ZGODNIE Z WYTYCZNYMI OPENAI (MAJ 2026)
         payload = {
-            "model": "dall-e-3",
+            "model": "gpt-image-1",
             "prompt": image_prompt,
             "n": 1,
             "size": "1024x1024"
