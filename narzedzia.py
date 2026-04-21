@@ -82,7 +82,7 @@ def call_openai_image(api_key, image_prompt):
         return None, f"Błąd komunikacji: {str(e)}"
 
 # --- FUNKCJA: EKSPORT DO WORDA (.DOCX) ---
-def create_word_document(title, content_text, image_bytes=None):
+def create_word_document(title, content_text, image_bytes=None, image_bytes2=None):
     doc = docx.Document()
     
     # Marginesy
@@ -106,11 +106,17 @@ def create_word_document(title, content_text, image_bytes=None):
     
     doc.add_paragraph("-" * 80)
     
-    # Jeśli mamy wygenerowany obrazek, wstawiamy go na początku Worda
+    # Jeśli mamy wygenerowane obrazki, wstawiamy je jeden pod drugim
     if image_bytes:
-        doc.add_picture(image_bytes, width=Inches(4.5))
+        doc.add_picture(image_bytes, width=Inches(3.5))
         last_paragraph = doc.paragraphs[-1]
         last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if image_bytes2:
+        doc.add_picture(image_bytes2, width=Inches(3.5))
+        last_paragraph = doc.paragraphs[-1]
+        last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+    if image_bytes or image_bytes2:
         doc.add_paragraph() # Odstęp
 
     # Wstawianie tekstu (z obsługą pogrubień markdown)
