@@ -2,12 +2,12 @@ import streamlit as st
 from narzedzia import call_openai_text, call_openai_image, create_word_document, extract_text_from_file
 import markdown
 
-def render_download_button(title, text, image_bytes=None):
+def render_download_button(title, text, image_bytes=None, image_bytes2=None):
     """Pomocniczy komponent do wyświetlania przycisku pobierania Worda i informowania o kopiowaniu"""
     st.markdown("---")
     c1, c2 = st.columns([1, 2])
     with c1:
-        doc_buffer = create_word_document(title, text, image_bytes)
+        doc_buffer = create_word_document(title, text, image_bytes, image_bytes2)
         st.download_button(
             label="📄 POBIERZ JAKO WORD (.DOCX)",
             data=doc_buffer,
@@ -79,23 +79,26 @@ def modul_asystent_dokumentow(api_key, is_pro):
 # ==========================================
 def modul_historyjki_spoleczne(api_key, is_pro):
     st.header("🧩 Generator Historyjek Społecznych")
-    st.markdown("Tworzy szczegółowe opowiadania (Social Stories) dla dzieci oraz **generuje terapeutyczne ilustracje** (jako jedna spójna scena)!")
+    st.markdown("Tworzy szczegółowe opowiadania (Social Stories) dla dzieci oraz **generuje dwie osobne ilustracje** (Problem i Rozwiązanie)!")
     
     c1, c2 = st.columns([1, 1])
     with c1:
         imie = st.text_input("Imię dziecka:")
         wiek = st.number_input("Wiek dziecka:", min_value=2, max_value=15, value=5)
+        plec = st.radio("Płeć bohatera na ilustracji:", ["Chłopiec", "Dziewczynka"], horizontal=True)
         problem = st.text_area("Sytuacja problemowa (Zapalnik/Trigger):", placeholder="Np. Zosia bardzo boi się dźwięku odkurzacza.")
         rozwiazanie = st.text_area("Oczekiwana reakcja / Strategia radzenia sobie:", placeholder="Np. Zakładamy słuchawki wyciszające, idziemy do drugiego pokoju.")
         
-        if st.button("📖 Wygeneruj Historyjkę i Obrazek"):
+        if st.button("📖 Wygeneruj Historyjkę i 2 Obrazki"):
             if not api_key:
                 st.error("Brak klucza API OpenAI.")
             elif not is_pro:
                 st.error("Funkcja wymaga aktywnego Kodu Premium. Odblokuj pełen dostęp wspierając projekt!")
             elif imie and problem:
-                with st.spinner("1/2 Pisanie rozbudowanej historyjki..."):
-                    sys_prompt = f"""Jesteś certyfikowanym terapeutą behawioralnym. Napisz SZCZEGÓŁOWĄ i ROZBUDOWANĄ Historyjkę Społeczną dla {wiek}-letniego dziecka z autyzmem.
+                plec_en = "boy" if plec == "Chłopiec" else "girl"
+                
+                with st.spinner("1/3 Pisanie rozbudowanej historyjki..."):
+                    sys_prompt = f"""Jesteś certyfikowanym terapeutą behawioralnym. Napisz SZCZEGÓŁOWĄ i ROZBUDOWANĄ Historyjkę Społeczną dla {wiek}-letniego dziecka ({plec}) z autyzmem.
                     ZASADY: Język dosłowny (zero metafor). Zwróć sam czysty tekst, używaj wyraźnych akapitów.
                     WYMAGANA STRUKTURA: 
                     1. Wstęp (kim jest bohater, co lubi).
@@ -107,15 +110,21 @@ def modul_historyjki_spoleczne(api_key, is_pro):
                     
                     st.session_state['hist_tekst'] = call_openai_text(api_key, sys_prompt, user_prompt, 0.6)
                 
-                with st.spinner("2/2 Nowy model AI maluje ilustrację..."):
-                    # ZMIANA LOGIKI: Jedna spójna scena sukcesu (zamiast dzielenia na pół), aby AI nie wariowało.
-                    img_prompt = f"A beautiful, single-scene children's book illustration showing a successful outcome. A {wiek}-year-old child is feeling safe, calm, and happy because they are using their coping strategy: {rozwiazanie}. In the background, the object they were afraid of ({problem}) is visible but looks completely normal, harmless, and inanimate. Style: cozy, flat vector, bright pastel colors, cute aesthetic. CRITICAL RULES: 100% SINGLE SCENE. NO split screens, NO panels. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO BUBBLES."
-                    img_bytes, err = call_openai_image(api_key, img_prompt)
-                    
-                    if img_bytes:
-                        st.session_state['hist_obraz'] = img_bytes
+                with st.spinner("2/3 AI maluje obrazek nr 1 (Problem)..."):
+                    img_prompt_prob = f"A single, beautiful, wordless children's book illustration. A {wiek}-year-old {plec_en} is looking anxious because of: {problem}. The object MUST look completely normal, harmless, and inanimate (no faces, no monsters). Style: cozy, flat vector, bright pastel colors, cute aesthetic. CRITICAL RULES: 100% SINGLE SCENE. NO split screens. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS."
+                    img_prob_bytes, err1 = call_openai_image(api_key, img_prompt_prob)
+                    if img_prob_bytes:
+                        st.session_state['hist_obraz_prob'] = img_prob_bytes
                     else:
-                        st.error(f"Błąd grafiki: {err}")
+                        st.error(f"Błąd grafiki (Problem): {err1}")
+
+                with st.spinner("3/3 AI maluje obrazek nr 2 (Rozwiązanie)..."):
+                    img_prompt_sol = f"A single, beautiful, wordless children's book illustration. The same {wiek}-year-old {plec_en} is feeling safe, calm, and happy because they are using their coping strategy: {rozwiazanie}. In the background, the object they were afraid of ({problem}) is visible but looks completely normal and inanimate. Style: cozy, flat vector, bright pastel colors, cute aesthetic. CRITICAL RULES: 100% SINGLE SCENE. NO split screens. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS."
+                    img_sol_bytes, err2 = call_openai_image(api_key, img_prompt_sol)
+                    if img_sol_bytes:
+                        st.session_state['hist_obraz_sol'] = img_sol_bytes
+                    else:
+                        st.error(f"Błąd grafiki (Rozwiązanie): {err2}")
             else: 
                 st.warning("Wpisz imię i opisz problem.")
 
@@ -123,12 +132,16 @@ def modul_historyjki_spoleczne(api_key, is_pro):
         if 'hist_tekst' in st.session_state:
             st.markdown("### 📚 Twoja Historyjka:")
             
-            if 'hist_obraz' in st.session_state and st.session_state['hist_obraz']:
-                st.image(st.session_state['hist_obraz'], caption="Ilustracja edukacyjna (Gotowe rozwiązanie)", use_column_width=True)
+            if 'hist_obraz_prob' in st.session_state and 'hist_obraz_sol' in st.session_state:
+                col_img1, col_img2 = st.columns(2)
+                with col_img1:
+                    st.image(st.session_state['hist_obraz_prob'], caption="Sytuacja trudna (Problem)", use_column_width=True)
+                with col_img2:
+                    st.image(st.session_state['hist_obraz_sol'], caption="Pożądana reakcja (Rozwiązanie)", use_column_width=True)
             
             st.markdown(f"<div class='story-box'>{st.session_state['hist_tekst']}</div>", unsafe_allow_html=True)
             
-            render_download_button("Historyjka Społeczna", st.session_state['hist_tekst'], st.session_state.get('hist_obraz'))
+            render_download_button("Historyjka Społeczna", st.session_state['hist_tekst'], st.session_state.get('hist_obraz_prob'), st.session_state.get('hist_obraz_sol'))
 
 # ==========================================
 # MODUŁ 3: PRZEDSZKOLE (RYMOWANKI NAPRAWIONE)
