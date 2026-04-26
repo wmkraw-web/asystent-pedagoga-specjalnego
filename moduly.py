@@ -16,63 +16,79 @@ def render_download_button(title, text, image_bytes=None, image_bytes2=None):
             use_container_width=True
         )
     with c2:
-        st.info("💡 Kliknij przycisk po lewej, aby zapisać gotowy, sformatowany plik na dysku. Możesz też po prostu zaznaczyć tekst wyżej myszką i skopiować go do schowka (Ctrl+C).")
+        st.info("💡 Kliknij przycisk po lewej, aby zapisać sformatowany plik gotowy do edycji w Wordzie.")
 
 # ==========================================
 # MODUŁ 1: ASYSTENT DOKUMENTÓW (IPET, WOPFU)
 # ==========================================
 def modul_asystent_dokumentow(api_key, is_pro):
-    st.header("📝 Asystent Dokumentów (IPET, WOPFU)")
-    st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie i Język Ekspercki</div>', unsafe_allow_html=True)
+    st.header("📝 Asystent Pedagoga PRO (Dokumenty SPE)")
+    st.markdown('<div class="men-badge">🏆 KLASA S: Urzędowe Formatowanie, Ochrona RODO i Język Ekspercki</div>', unsafe_allow_html=True)
     
     MEN_RULES = {
-        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura: Zakres dostosowań, zintegrowane działania specjalistów, ocena efektywności.",
-        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania)": "Struktura: Indywidualne potrzeby, mocne strony, bariery, przyczyny niepowodzeń.",
-        "Opinia o uczniu do Poradni PPP": "Struktura: Opis funkcjonowania poznawczego, społecznego, emocjonalnego. Ton obiektywny, nieoceniający, bazujący na faktach.",
+        "IPET (Indywidualny Program Edukacyjno-Terapeutyczny)": "Struktura musi BEZWZGLĘDNIE obejmować: 1. Rozpoznanie i diagnozę. 2. Cele edukacyjno-terapeutyczne (ogólne i szczegółowe). 3. Metody i formy pracy. 4. Zakres dostosowań wymagań edukacyjnych. 5. Zintegrowane działania nauczycieli i specjalistów. 6. Formy i okres udzielania pomocy psychologiczno-pedagogicznej. 7. Współpracę z rodzicami.",
+        "WOPFU (Wielospecjalistyczna Ocena Poziomu Funkcjonowania Ucznia)": "Struktura musi BEZWZGLĘDNIE obejmować: 1. Indywidualne potrzeby rozwojowe i edukacyjne. 2. Mocne strony, predyspozycje i uzdolnienia. 3. Przyczyny niepowodzeń edukacyjnych lub trudności. 4. Bariery i ograniczenia w środowisku ucznia. 5. Wnioski i zalecenia do dalszej pracy.",
+        "Opinia o uczniu do Poradni (PPP)": "Struktura opinii: 1. Opis funkcjonowania poznawczego. 2. Funkcjonowanie społeczno-emocjonalne. 3. Motoryka i samodzielność. 4. Podsumowanie i wnioski nauczyciela.",
+        "Arkusz Obserwacji / Notatka służbowa": "Opis faktograficzny sytuacji, obserwacja zachowań, zastosowane środki zaradcze, wnioski.",
+        "Indywidualny Plan Wsparcia (Inny)": "Dopasuj elastycznie do potrzeb opartych na podanej diagnozie i mocnych/słabych stronach ucznia."
     }
-    
-    tab1, tab2 = st.tabs(["📁 Dane do analizy", "📄 Podgląd i Wydruk"])
+
+    st.warning("🛡️ **Ochrona Danych (RODO):** Nigdy nie wpisuj pełnego imienia i nazwiska ucznia. Używaj wyłącznie inicjałów (np. 'Kasia N.').")
+
+    tab1, tab2 = st.tabs(["📁 Krok 1: Wypełnij dane", "📄 Krok 2: Podgląd i Wydruk"])
     with tab1:
-        doc_type = st.selectbox("Rodzaj dokumentu:", list(MEN_RULES.keys()))
+        doc_type = st.selectbox("Rodzaj dokumentu (Wymogi MEN wbudowane):", list(MEN_RULES.keys()))
+        
         c1, c2 = st.columns(2)
         with c1:
-            s_name = st.text_input("Imię / Inicjały ucznia:")
-            diagnosis = st.text_area("Diagnoza główna / Powód opinii:", height=100)
-            strengths = st.text_area("💪 Mocne strony:", height=100)
-            weaknesses = st.text_area("🚧 Trudności / Niepokojące zachowania:", height=100)
+            s_name = st.text_input("Inicjały Ucznia:", placeholder="np. Jan K.")
+            s_age = st.text_input("Wiek / Klasa:", placeholder="np. 9 lat, Klasa 3b")
+            diagnosis = st.text_area("Diagnoza główna / Powód opinii:", placeholder="Np. Spektrum autyzmu, ADHD, trudności z koncentracją...", height=80)
+            strengths = st.text_area("💪 Mocne strony / Zasoby (Potencjał):", placeholder="Zainteresowania, dobre cechy, to co wychodzi mu najlepiej...", height=100)
+            weaknesses = st.text_area("🚧 Trudności / Bariery (Dysfunkcje):", placeholder="Co sprawia największy problem na lekcjach lub przerwach...", height=100)
+        
         with c2:
-            files = st.file_uploader("Wgraj orzeczenia z Poradni do analizy (Opcjonalnie PDF/DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
-            custom_template = st.text_area("📋 Wklej wzór / strukturę wymaganą w Twojej placówce (Opcjonalnie):", placeholder="np. 1. Funkcjonowanie społeczne, 2. Motoryka, 3. Zalecenia...", height=230)
+            st.markdown("### Ustawienia Zaawansowane")
+            format_length = st.radio("Długość dokumentu:", ["Epicko rozbudowany (Lany tekst z żargonem)", "Zwięzły (Krótkie punkty)"])
+            custom_template = st.text_area("📋 Szablon Twojej placówki (Opcjonalnie):", placeholder="Wklej tu nazwy nagłówków wymaganych w Twojej szkole (np. 1. Cele, 2. Metody, 3. Tabela z oceną)... AI się do tego dostosuje!", height=135)
+            files = st.file_uploader("Wgraj orzeczenia z Poradni (Opcjonalnie PDF/DOCX):", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
             
-        if st.button("⚙️ GENERUJ DOKUMENT URZĘDOWY"):
-            if not is_pro: st.error("Wymagany aktywny Kod Premium. Odblokuj pełen dostęp wspierając projekt!")
-            elif not s_name or not diagnosis: st.warning("Podaj imię i diagnozę.")
+        if st.button("✨ GENERUJ DOKUMENT URZĘDOWY"):
+            if not is_pro: 
+                st.error("Wymagany aktywny Kod Premium! Odblokuj pełen dostęp wspierając projekt.")
+            elif not s_name or not diagnosis: 
+                st.warning("Podaj inicjały ucznia i główną diagnozę.")
             else:
-                with st.spinner("Przetwarzam fachowym żargonem zgodnym z MEN i analizuję pliki..."):
+                with st.spinner("Analizuję wymogi MEN, dobieram żargon pedagogiczny i układam dokument... To zajmie ok. 15 sekund."):
                     full_text = ""
                     if files:
                         for f in files: full_text += f"\n[ANALIZA PLIKU: {f.name}]\n" + extract_text_from_file(f)
                     
-                    template_instruction = f"WYMAGANA STRUKTURA DOKUMENTU: Należy BEZWZGLĘDNIE zastosować poniższy układ i szczegółowo go wypełnić:\n{custom_template}" if custom_template.strip() else f"WYMAGANIA MEN: {MEN_RULES[doc_type]}"
+                    length_instruction = "Wymagam BARDZO ROZBUDOWANEGO, wyczerpującego i profesjonalnego dokumentu. Każdy punkt musi być opisany w formie pełnych, bogatych w żargon pedagogiczny akapitów. Dokument ma wyglądać na stworzony przez eksperta z wieloletnim stażem." if "Epicko" in format_length else "Wymagam ZWIĘZŁEGO dokumentu (skrócona forma). Używaj punktatorów i krótkich, konkretnych zdań. Sama esencja."
 
-                    sys_prompt = f"""Jesteś wybitnym diagnostą i pedagogiem. Napisz BARDZO SZCZEGÓŁOWY i ROZBUDOWANY dokument: {doc_type}. 
-                    Używaj wysoce specjalistycznego żargonu pedagogicznego i psychologicznego. Zadbaj o zgodność z polskim prawem oświatowym i wytycznymi MEN.
-                    Dokument ma być wyczerpujący, analityczny i zawierać konkretne wskazówki do pracy. Unikaj powierzchownych, jednozdaniowych haseł.
-                    ZASADY: 1. {template_instruction}"""
+                    template_instruction = f"ZIGNORUJ STANDARDOWE WYTYCZNE. Musisz BEZWZGLĘDNIE dostosować wygenerowany dokument do tego SZABLONU PLACÓWKI wymaganego przez użytkownika:\n{custom_template}" if custom_template.strip() else f"WYTYCZNE MEN DLA TEGO DOKUMENTU: {MEN_RULES[doc_type]}"
+
+                    sys_prompt = f"""Jesteś najwyższej klasy polskim pedagogiem specjalnym, diagnostą i ekspertem ds. edukacji włączającej. Twoim zadaniem jest napisanie oficjalnego dokumentu: {doc_type}.
+                    ZASADY KRYTYCZNE:
+                    1. Używaj wyłącznie wysoce profesjonalnego żargonu psychologiczno-pedagogicznego. Zamiast "bywa niegrzeczny", pisz "wykazuje trudności w samoregulacji emocjonalnej".
+                    2. {length_instruction}
+                    3. {template_instruction}
+                    4. Zwróć tylko czysty tekst dokumentu sformatowany w języku Markdown (używaj # i ## do nagłówków, ** do pogrubień). Nie dodawaj żadnych powitań typu 'Oto twój dokument'."""
                     
-                    user_prompt = f"Imię: {s_name}\nDiagnoza: {diagnosis}\nMocne: {strengths}\nSłabe: {weaknesses}\nPliki do analizy: {full_text[:15000]}"
-                    result = call_openai_text(api_key, sys_prompt, user_prompt, 0.5)
+                    user_prompt = f"DANE UCZNIA:\nInicjały: {s_name}\nWiek/Klasa: {s_age}\n\nDIAGNOZA GŁÓWNA:\n{diagnosis}\n\nMOCNE STRONY:\n{strengths}\n\nTRUDNOŚCI:\n{weaknesses}\n\nPLIKI DO ANALIZY:\n{full_text[:15000]}"
+                    
+                    result = call_openai_text(api_key, sys_prompt, user_prompt, 0.4) # Niższa temperatura = bardziej formalny tekst
                     st.session_state['gen_doc'] = result
-                    st.session_state['doc_title'] = doc_type
-                    st.success("✅ Gotowe! Przejdź do zakładki 'Podgląd i Wydruk'.")
+                    st.session_state['doc_title'] = f"{doc_type.split(' ')[0]} - {s_name}"
+                    st.success("✅ Gotowe! Dokument sformatowany i napisany eksperckim żargonem. Przejdź do zakładki 'Podgląd i Wydruk'.")
                     
     with tab2:
         if 'gen_doc' in st.session_state:
-            html = markdown.markdown(st.session_state['gen_doc'])
+            html = markdown.markdown(st.session_state['gen_doc'], extensions=['tables'])
             st.markdown(f'<div class="a4-paper">{html}</div>', unsafe_allow_html=True)
             render_download_button(st.session_state['doc_title'], st.session_state['gen_doc'])
         else:
-            st.info("Wygeneruj dokument w zakładce obok.")
+            st.info("Wypełnij formularz w zakładce 'Krok 1' i kliknij przycisk generowania.")
 
 # ==========================================
 # MODUŁ 2: HISTORYJKI SPOŁECZNE (+ OBRAZKI)
